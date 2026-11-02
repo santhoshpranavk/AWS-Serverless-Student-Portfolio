@@ -1,3 +1,4 @@
+
 /**
  * Pranav K | Cloud & Serverless Portfolio
  * Modern, Interactive Frontend Script
@@ -14,6 +15,7 @@ document.addEventListener('DOMContentLoaded', () => {
   initContactForm();
   initNavigation();
   initCopyEmail();
+  displayPortfolioProjects();
 });
 
 
@@ -550,4 +552,110 @@ async function fetchPortfolioProjects() {
     console.error("Failed to fetch portfolio projects:", error);
     return [];
   }
+}
+
+/* ==========================================================================
+   8. DYNAMIC DYNAMODB PROJECT CARDS
+   Keeps all existing Antigravity cards and uses their existing CSS classes.
+   ========================================================================== */
+async function displayPortfolioProjects() {
+  const grid = document.getElementById('projects-grid');
+  if (!grid) {
+    console.warn('Projects grid not found; skipping dynamic projects.');
+    return;
+  }
+
+  const projects = await fetchPortfolioProjects();
+  if (!Array.isArray(projects)) {
+    console.warn('Projects API did not return an array.');
+    return;
+  }
+
+  // Remove only previously generated cards, never the original HTML cards.
+  grid.querySelectorAll('[data-dynamodb-project="true"]').forEach(card => card.remove());
+
+  projects.forEach(project => {
+    if (!project || typeof project !== 'object') return;
+
+    const card = document.createElement('article');
+    card.className = 'glass-card project-card';
+    card.dataset.dynamodbProject = 'true';
+
+    const banner = document.createElement('div');
+    banner.className = 'project-banner project-banner-aws';
+
+    const category = document.createElement('div');
+    category.className = 'project-tag-pill';
+    category.textContent = 'AWS Serverless';
+
+    const bannerIcon = document.createElement('div');
+    bannerIcon.className = 'banner-icon';
+    const cloudIcon = document.createElement('i');
+    cloudIcon.className = 'fa-solid fa-cloud';
+    cloudIcon.setAttribute('aria-hidden', 'true');
+    bannerIcon.appendChild(cloudIcon);
+    banner.append(category, bannerIcon);
+
+    const content = document.createElement('div');
+    content.className = 'project-content';
+
+    const title = document.createElement('h3');
+    title.className = 'project-title';
+    title.textContent = typeof project.title === 'string' && project.title.trim()
+      ? project.title
+      : 'Untitled Project';
+
+    const description = document.createElement('p');
+    description.className = 'project-desc';
+    description.textContent = typeof project.description === 'string'
+      ? project.description
+      : '';
+
+    const tags = document.createElement('div');
+    tags.className = 'project-tech-tags';
+    if (Array.isArray(project.technologies)) {
+      project.technologies.forEach(technology => {
+        if (typeof technology !== 'string') return;
+        const tag = document.createElement('span');
+        tag.textContent = technology;
+        tags.appendChild(tag);
+      });
+    }
+
+    const actions = document.createElement('div');
+    actions.className = 'project-actions';
+    const githubUrl = typeof project.githubUrl === 'string'
+      ? project.githubUrl.trim()
+      : '';
+
+    // Only allow a genuine HTTPS GitHub link from API data.
+    let validGithubUrl = null;
+    try {
+      const parsed = new URL(githubUrl);
+      if (parsed.protocol === 'https:' &&
+          (parsed.hostname === 'github.com' || parsed.hostname === 'www.github.com')) {
+        validGithubUrl = parsed.href;
+      }
+    } catch (error) {
+      // Missing or invalid links simply won't create a Source button.
+    }
+
+    if (validGithubUrl) {
+      const link = document.createElement('a');
+      link.href = validGithubUrl;
+      link.target = '_blank';
+      link.rel = 'noopener noreferrer';
+      link.className = 'project-link';
+      link.setAttribute('aria-label', `GitHub Repo: ${title.textContent}`);
+      const githubIcon = document.createElement('i');
+      githubIcon.className = 'fa-brands fa-github';
+      githubIcon.setAttribute('aria-hidden', 'true');
+      link.append(githubIcon, document.createTextNode(' Source'));
+      actions.appendChild(link);
+    }
+
+    content.append(title, description, tags, actions);
+    card.append(banner, content);
+    grid.appendChild(card);
+  });
 }
