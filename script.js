@@ -4,6 +4,7 @@
  */
 
 const API_URL = "https://xdqk07kdna.execute-api.ap-south-1.amazonaws.com/contact";
+const PROJECTS_API_URL = "https://gtk9yvwb32rv0k0y.qws.lambda-web.ap-south-1.on.aws/api/projects";
 
 document.addEventListener('DOMContentLoaded', () => {
   initParticleCanvas();
@@ -530,4 +531,23 @@ function escapeHTML(str) {
       '"': '&quot;'
     }[tag] || tag)
   );
+}
+
+// Fetch portfolio projects from AWS Lambda and DynamoDB
+async function fetchPortfolioProjects() {
+  try {
+    const response = await fetch(PROJECTS_API_URL);
+
+    if (!response.ok) {
+      throw new Error("Projects API returned HTTP " + response.status);
+    }
+
+    const data = await response.json();
+    console.log("AWS DynamoDB Projects:", data.projects);
+
+    return data.projects;
+  } catch (error) {
+    console.error("Failed to fetch portfolio projects:", error);
+    return [];
+  }
 }
