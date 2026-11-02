@@ -1,0 +1,779 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Pranav K | Cloud & Serverless Portfolio</title>
+  <meta name="description" content="Portfolio of Pranav K - Cloud Computing Student, AWS Learner, and Serverless Developer.">
+  
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+  
+  <!-- Font Awesome / Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  
+  <!-- Custom Stylesheet -->
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <!-- Interactive Particle / Cloud Mesh Canvas -->
+  <canvas id="bg-canvas"></canvas>
+
+  <!-- Ambient Glow Background Blobs -->
+  <div class="glow-orb orb-1"></div>
+  <div class="glow-orb orb-2"></div>
+  <div class="glow-orb orb-3"></div>
+
+  <!-- Navigation Bar -->
+  <nav class="navbar" id="navbar">
+    <div class="nav-container">
+      <a href="#home" class="nav-brand">
+        <span class="brand-bracket">&lt;</span>
+        <span class="brand-name">PK</span>
+        <span class="brand-slash">/</span>
+        <span class="brand-bracket">&gt;</span>
+        <span class="brand-role">Cloud.dev</span>
+      </a>
+
+      <div class="nav-menu" id="navMenu">
+        <a href="#about" class="nav-link"><i class="fa-solid fa-user-astronaut"></i> About</a>
+        <a href="#skills" class="nav-link"><i class="fa-solid fa-microchip"></i> Skills</a>
+        <a href="#projects" class="nav-link"><i class="fa-solid fa-diagram-project"></i> Projects</a>
+        <a href="#terminal" class="nav-link"><i class="fa-solid fa-terminal"></i> Terminal</a>
+        <a href="#contact" class="nav-link"><i class="fa-solid fa-paper-plane"></i> Contact</a>
+      </div>
+
+      <div class="nav-actions">
+        <a href="#contact" class="btn btn-primary btn-sm">
+          <span>Connect</span>
+          <i class="fa-solid fa-bolt"></i>
+        </a>
+        <button class="nav-toggle" id="navToggle" aria-label="Toggle navigation">
+          <span></span>
+          <span></span>
+          <span></span>
+        </button>
+      </div>
+    </div>
+  </nav>
+
+  <!-- Main Content Wrapper -->
+  <main>
+    <!-- HERO SECTION -->
+    <section class="hero-section" id="home">
+      <div class="container hero-container">
+        <div class="hero-content">
+          <!-- Availability Badge -->
+          <div class="badge-pill">
+            <span class="beacon">
+              <span class="beacon-wave"></span>
+              <span class="beacon-core"></span>
+            </span>
+            <span class="badge-text">Available for Cloud Roles &amp; Internships</span>
+          </div>
+
+          <!-- Headline -->
+          <h1 class="hero-title">
+            Hi, I'm <span class="text-gradient">Pranav K</span><br>
+            <span class="typing-text" id="typingText"></span><span class="cursor">|</span>
+          </h1>
+
+          <p class="hero-description">
+            Cloud computing enthusiast passionate about architecting scalable, resilient, and cost-effective 
+            <strong>serverless systems on AWS</strong>. Bridging clean frontend interfaces with robust backend automation.
+          </p>
+
+          <!-- Action Buttons -->
+          <div class="hero-cta-group">
+            <a href="#projects" class="btn btn-primary">
+              <i class="fa-solid fa-rocket"></i>
+              <span>View Projects</span>
+            </a>
+            <a href="#contact" class="btn btn-secondary">
+              <i class="fa-regular fa-envelope"></i>
+              <span>Get In Touch</span>
+            </a>
+            <button class="btn btn-outline" id="copyEmailBtn" data-email="pranav.cloud@example.com">
+              <i class="fa-solid fa-copy"></i>
+              <span class="btn-copy-label">Copy Email</span>
+            </button>
+          </div>
+
+          <!-- Social Links -->
+          <div class="social-links">
+            <a href="https://github.com" target="_blank" rel="noopener noreferrer" class="social-icon" aria-label="GitHub">
+              <i class="fa-brands fa-github"></i>
+            </a>
+            <a href="https://linkedin.com" target="_blank" rel="noopener noreferrer" class="social-icon" aria-label="LinkedIn">
+              <i class="fa-brands fa-linkedin"></i>
+            </a>
+            <a href="mailto:pranav.cloud@example.com" class="social-icon" aria-label="Email">
+              <i class="fa-solid fa-envelope"></i>
+            </a>
+            <a href="https://aws.amazon.com" target="_blank" rel="noopener noreferrer" class="social-icon" aria-label="AWS Community">
+              <i class="fa-brands fa-aws"></i>
+            </a>
+          </div>
+        </div>
+
+        <!-- Hero Architecture Card / Interactive Widget -->
+        <div class="hero-visual">
+          <div class="glass-card architecture-card">
+            <div class="card-header">
+              <div class="window-controls">
+                <span class="dot dot-red"></span>
+                <span class="dot dot-yellow"></span>
+                <span class="dot dot-green"></span>
+              </div>
+              <span class="card-title"><i class="fa-solid fa-cloud"></i> aws-serverless-pipeline.json</span>
+              <span class="region-tag">us-east-1</span>
+            </div>
+
+            <div class="card-body">
+              <div class="arch-flow">
+                <div class="arch-node" data-tooltip="User Browser / Client">
+                  <div class="node-icon"><i class="fa-solid fa-globe"></i></div>
+                  <span class="node-label">Web Client</span>
+                </div>
+                <div class="arch-arrow"><i class="fa-solid fa-arrow-right-long"></i></div>
+                <div class="arch-node" data-tooltip="Amazon API Gateway (REST endpoint)">
+                  <div class="node-icon aws-color"><i class="fa-solid fa-network-wired"></i></div>
+                  <span class="node-label">API Gateway</span>
+                </div>
+                <div class="arch-arrow"><i class="fa-solid fa-arrow-right-long"></i></div>
+                <div class="arch-node" data-tooltip="AWS Lambda (Python 3.12 Runtime)">
+                  <div class="node-icon lambda-color"><i class="fa-solid fa-bolt"></i></div>
+                  <span class="node-label">AWS Lambda</span>
+                </div>
+                <div class="arch-arrow"><i class="fa-solid fa-arrow-right-long"></i></div>
+                <div class="arch-node" data-tooltip="Amazon DynamoDB (NoSQL Data Store)">
+                  <div class="node-icon db-color"><i class="fa-solid fa-database"></i></div>
+                  <span class="node-label">DynamoDB</span>
+                </div>
+              </div>
+
+              <!-- Live Telemetry Stream -->
+              <div class="telemetry-box">
+                <div class="telemetry-header">
+                  <span><i class="fa-solid fa-circle-nodes text-green"></i> System Status: Operational</span>
+                  <span class="latency-pill">Latency: 28ms</span>
+                </div>
+                <div class="code-stream" id="codeStream">
+                  <code>[INFO] Event triggered from API Gateway</code>
+                  <code>[200] Lambda executed in 14.82ms | Memory: 128MB</code>
+                  <code>[SUCCESS] Record persistent in DynamoDB table: 'UserEvents'</code>
+                </div>
+              </div>
+            </div>
+
+            <!-- Metric stats row -->
+            <div class="card-footer-stats">
+              <div class="stat-item">
+                <span class="stat-number">99.9%</span>
+                <span class="stat-label">Serverless Uptime</span>
+              </div>
+              <div class="stat-divider"></div>
+              <div class="stat-item">
+                <span class="stat-number">Zero</span>
+                <span class="stat-label">Server Maintenance</span>
+              </div>
+              <div class="stat-divider"></div>
+              <div class="stat-item">
+                <span class="stat-number">On-Demand</span>
+                <span class="stat-label">Auto-Scaling</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Scroll Indicator -->
+      <a href="#about" class="scroll-down-indicator" aria-label="Scroll down">
+        <span>EXPLORE SYSTEM</span>
+        <div class="mouse-icon">
+          <div class="mouse-wheel"></div>
+        </div>
+      </a>
+    </section>
+
+    <!-- ABOUT SECTION -->
+    <section class="section about-section" id="about">
+      <div class="container">
+        <div class="section-header">
+          <span class="section-tag"><i class="fa-solid fa-user-astronaut"></i> Origin Story</span>
+          <h2 class="section-title">About <span class="text-gradient">Me</span></h2>
+          <p class="section-subtitle">Combining problem-solving logic with modern cloud infrastructure.</p>
+        </div>
+
+        <div class="about-grid">
+          <!-- Text Story -->
+          <div class="glass-card about-card">
+            <h3 class="about-heading">
+              <i class="fa-solid fa-graduation-cap text-gradient-accent"></i>
+              Cloud Student &amp; Serverless Builder
+            </h3>
+            <p class="about-text">
+              I am a computer science student specializing in <strong>Cloud Computing</strong> and modern web architectures. 
+              My journey began with traditional full-stack development, but I was instantly captivated by the power of the cloud—how a few lines of infrastructure-as-code and serverless compute could serve millions of requests without managing physical servers.
+            </p>
+            <p class="about-text">
+              Currently, I focus on the <strong>Amazon Web Services (AWS)</strong> ecosystem, mastering event-driven designs, serverless pipelines, microservices, and cost-efficient cloud resource provisioning.
+            </p>
+
+            <div class="about-highlights">
+              <div class="highlight-item">
+                <div class="highlight-icon"><i class="fa-solid fa-cubes"></i></div>
+                <div>
+                  <h4>Event-Driven Architecture</h4>
+                  <p>Building decoupled microservices with AWS Lambda, EventBridge, and SQS.</p>
+                </div>
+              </div>
+              <div class="highlight-item">
+                <div class="highlight-icon"><i class="fa-solid fa-shield-halved"></i></div>
+                <div>
+                  <h4>Cloud Security &amp; IAM</h4>
+                  <p>Applying the principle of least privilege, secure VPCs, and encryption.</p>
+                </div>
+              </div>
+              <div class="highlight-item">
+                <div class="highlight-icon"><i class="fa-solid fa-code-compare"></i></div>
+                <div>
+                  <h4>Automation &amp; CI/CD</h4>
+                  <p>Automating build, test, and deployment workflows with Python &amp; GitHub Actions.</p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Visual Profile / Highlights Box -->
+          <div class="about-meta-column">
+            <div class="glass-card profile-badge-card">
+              <div class="avatar-container">
+                <div class="avatar-ring"></div>
+                <div class="avatar-inner">
+                  <span class="avatar-initials">PK</span>
+                </div>
+              </div>
+              <h3 class="profile-name">Pranav K</h3>
+              <p class="profile-role">Aspiring Cloud Solutions Architect</p>
+
+              <div class="cert-focus-box">
+                <div class="cert-header">
+                  <i class="fa-brands fa-aws aws-gold"></i>
+                  <span>Target Certification</span>
+                </div>
+                <p class="cert-title">AWS Certified Solutions Architect – Associate</p>
+                <div class="progress-bar-container">
+                  <div class="progress-bar" style="width: 75%;"></div>
+                </div>
+                <span class="progress-meta">Study Progress: 75% Completed</span>
+              </div>
+
+              <div class="quick-facts">
+                <div class="fact-row">
+                  <span class="fact-label"><i class="fa-solid fa-location-dot"></i> Location</span>
+                  <span class="fact-val">India (Open to Remote)</span>
+                </div>
+                <div class="fact-row">
+                  <span class="fact-label"><i class="fa-solid fa-laptop-code"></i> Primary Focus</span>
+                  <span class="fact-val">AWS &amp; Serverless Stack</span>
+                </div>
+                <div class="fact-row">
+                  <span class="fact-label"><i class="fa-solid fa-language"></i> Core Languages</span>
+                  <span class="fact-val">Python, JavaScript, SQL</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- SKILLS SECTION -->
+    <section class="section skills-section" id="skills">
+      <div class="container">
+        <div class="section-header">
+          <span class="section-tag"><i class="fa-solid fa-microchip"></i> Capabilities</span>
+          <h2 class="section-title">Technical <span class="text-gradient">Arsenal</span></h2>
+          <p class="section-subtitle">Core competencies across cloud services, programming, and web engineering.</p>
+        </div>
+
+        <div class="skills-category-grid">
+          <!-- Skill Category 1: AWS & Cloud -->
+          <div class="glass-card skill-cat-card">
+            <div class="cat-header">
+              <div class="cat-icon aws-glow"><i class="fa-brands fa-aws"></i></div>
+              <div>
+                <h3>AWS Cloud &amp; Serverless</h3>
+                <span class="cat-count">Core Specialization</span>
+              </div>
+            </div>
+            <ul class="skill-items-list">
+              <li>
+                <div class="skill-info">
+                  <span>AWS Lambda (Functions-as-a-Service)</span>
+                  <span class="skill-pct">Advanced</span>
+                </div>
+                <div class="bar-bg"><div class="bar-fill" style="width: 85%;"></div></div>
+              </li>
+              <li>
+                <div class="skill-info">
+                  <span>Amazon S3 (Storage &amp; Static Hosting)</span>
+                  <span class="skill-pct">Expert</span>
+                </div>
+                <div class="bar-bg"><div class="bar-fill" style="width: 90%;"></div></div>
+              </li>
+              <li>
+                <div class="skill-info">
+                  <span>Amazon API Gateway (REST / HTTP APIs)</span>
+                  <span class="skill-pct">Proficient</span>
+                </div>
+                <div class="bar-bg"><div class="bar-fill" style="width: 80%;"></div></div>
+              </li>
+              <li>
+                <div class="skill-info">
+                  <span>Amazon DynamoDB (NoSQL Key-Value Store)</span>
+                  <span class="skill-pct">Proficient</span>
+                </div>
+                <div class="bar-bg"><div class="bar-fill" style="width: 75%;"></div></div>
+              </li>
+              <li>
+                <div class="skill-info">
+                  <span>AWS IAM &amp; CloudWatch (Security &amp; Logs)</span>
+                  <span class="skill-pct">Solid</span>
+                </div>
+                <div class="bar-bg"><div class="bar-fill" style="width: 78%;"></div></div>
+              </li>
+            </ul>
+          </div>
+
+          <!-- Skill Category 2: Programming & Scripting -->
+          <div class="glass-card skill-cat-card">
+            <div class="cat-header">
+              <div class="cat-icon python-glow"><i class="fa-brands fa-python"></i></div>
+              <div>
+                <h3>Programming &amp; Scripting</h3>
+                <span class="cat-count">Backend Logic</span>
+              </div>
+            </div>
+            <ul class="skill-items-list">
+              <li>
+                <div class="skill-info">
+                  <span>Python 3 (Boto3 AWS SDK)</span>
+                  <span class="skill-pct">88%</span>
+                </div>
+                <div class="bar-bg"><div class="bar-fill" style="width: 88%;"></div></div>
+              </li>
+              <li>
+                <div class="skill-info">
+                  <span>JavaScript (ES6+, Async/Await)</span>
+                  <span class="skill-pct">82%</span>
+                </div>
+                <div class="bar-bg"><div class="bar-fill" style="width: 82%;"></div></div>
+              </li>
+              <li>
+                <div class="skill-info">
+                  <span>Bash &amp; Linux Shell Scripting</span>
+                  <span class="skill-pct">70%</span>
+                </div>
+                <div class="bar-bg"><div class="bar-fill" style="width: 70%;"></div></div>
+              </li>
+              <li>
+                <div class="skill-info">
+                  <span>SQL / Database Queries</span>
+                  <span class="skill-pct">75%</span>
+                </div>
+                <div class="bar-bg"><div class="bar-fill" style="width: 75%;"></div></div>
+              </li>
+            </ul>
+          </div>
+
+          <!-- Skill Category 3: Frontend & Web UI -->
+          <div class="glass-card skill-cat-card">
+            <div class="cat-header">
+              <div class="cat-icon web-glow"><i class="fa-solid fa-code"></i></div>
+              <div>
+                <h3>Frontend Engineering</h3>
+                <span class="cat-count">Creative Interfaces</span>
+              </div>
+            </div>
+            <ul class="skill-items-list">
+              <li>
+                <div class="skill-info">
+                  <span>Modern Semantic HTML5</span>
+                  <span class="skill-pct">95%</span>
+                </div>
+                <div class="bar-bg"><div class="bar-fill" style="width: 95%;"></div></div>
+              </li>
+              <li>
+                <div class="skill-info">
+                  <span>CSS3 (Grid, Flexbox, Glassmorphism)</span>
+                  <span class="skill-pct">90%</span>
+                </div>
+                <div class="bar-bg"><div class="bar-fill" style="width: 90%;"></div></div>
+              </li>
+              <li>
+                <div class="skill-info">
+                  <span>Responsive Web Design</span>
+                  <span class="skill-pct">92%</span>
+                </div>
+                <div class="bar-bg"><div class="bar-fill" style="width: 92%;"></div></div>
+              </li>
+              <li>
+                <div class="skill-info">
+                  <span>REST API Ingestion &amp; Fetch</span>
+                  <span class="skill-pct">85%</span>
+                </div>
+                <div class="bar-bg"><div class="bar-fill" style="width: 85%;"></div></div>
+              </li>
+            </ul>
+          </div>
+
+          <!-- Skill Category 4: Tools & DevOps -->
+          <div class="glass-card skill-cat-card">
+            <div class="cat-header">
+              <div class="cat-icon devops-glow"><i class="fa-solid fa-toolbox"></i></div>
+              <div>
+                <h3>Developer Tools &amp; Methods</h3>
+                <span class="cat-count">Productivity &amp; VCS</span>
+              </div>
+            </div>
+            <ul class="skill-items-list">
+              <li>
+                <div class="skill-info">
+                  <span>Git Version Control &amp; GitHub</span>
+                  <span class="skill-pct">85%</span>
+                </div>
+                <div class="bar-bg"><div class="bar-fill" style="width: 85%;"></div></div>
+              </li>
+              <li>
+                <div class="skill-info">
+                  <span>Postman API Testing &amp; Mocking</span>
+                  <span class="skill-pct">80%</span>
+                </div>
+                <div class="bar-bg"><div class="bar-fill" style="width: 80%;"></div></div>
+              </li>
+              <li>
+                <div class="skill-info">
+                  <span>CI/CD Workflow Fundamentals</span>
+                  <span class="skill-pct">72%</span>
+                </div>
+                <div class="bar-bg"><div class="bar-fill" style="width: 72%;"></div></div>
+              </li>
+              <li>
+                <div class="skill-info">
+                  <span>VS Code, Cloud9 &amp; CLI Tools</span>
+                  <span class="skill-pct">90%</span>
+                </div>
+                <div class="bar-bg"><div class="bar-fill" style="width: 90%;"></div></div>
+              </li>
+            </ul>
+          </div>
+        </div>
+
+        <!-- Tech Badges Cloud -->
+        <div class="tech-pill-cloud">
+          <span class="tech-badge"><i class="fa-brands fa-aws"></i> AWS Lambda</span>
+          <span class="tech-badge"><i class="fa-solid fa-box-archive"></i> Amazon S3</span>
+          <span class="tech-badge"><i class="fa-solid fa-database"></i> DynamoDB</span>
+          <span class="tech-badge"><i class="fa-solid fa-network-wired"></i> API Gateway</span>
+          <span class="tech-badge"><i class="fa-solid fa-shield-virus"></i> AWS IAM</span>
+          <span class="tech-badge"><i class="fa-solid fa-chart-line"></i> CloudWatch</span>
+          <span class="tech-badge"><i class="fa-brands fa-python"></i> Python 3.x</span>
+          <span class="tech-badge"><i class="fa-brands fa-js"></i> JavaScript</span>
+          <span class="tech-badge"><i class="fa-brands fa-html5"></i> HTML5</span>
+          <span class="tech-badge"><i class="fa-brands fa-css3-alt"></i> CSS3</span>
+          <span class="tech-badge"><i class="fa-brands fa-git-alt"></i> Git</span>
+          <span class="tech-badge"><i class="fa-brands fa-linux"></i> Linux</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- PROJECTS SECTION -->
+    <section class="section projects-section" id="projects">
+      <div class="container">
+        <div class="section-header">
+          <span class="section-tag"><i class="fa-solid fa-diagram-project"></i> Portfolio Work</span>
+          <h2 class="section-title">Featured <span class="text-gradient">Projects</span></h2>
+          <p class="section-subtitle">Real-world applications applying cloud serverless patterns and responsive design.</p>
+        </div>
+
+        <div class="projects-grid">
+          <!-- Project 1 -->
+          <article class="glass-card project-card">
+            <div class="project-banner project-banner-aws">
+              <div class="project-tag-pill">Serverless Architecture</div>
+              <div class="banner-icon"><i class="fa-solid fa-bolt"></i></div>
+            </div>
+            <div class="project-content">
+              <h3 class="project-title">Serverless Contact Pipeline</h3>
+              <p class="project-desc">
+                An end-to-end serverless submission system built with Amazon API Gateway, a Python AWS Lambda processor, and DynamoDB storage with automatic email alerts.
+              </p>
+              <div class="project-tech-tags">
+                <span>AWS Lambda</span>
+                <span>API Gateway</span>
+                <span>DynamoDB</span>
+                <span>Python</span>
+              </div>
+              <div class="project-actions">
+                <a href="#contact" class="btn btn-sm btn-outline">Test Below <i class="fa-solid fa-arrow-down"></i></a>
+                <a href="https://github.com" target="_blank" rel="noopener noreferrer" class="project-link" aria-label="GitHub Repo">
+                  <i class="fa-brands fa-github"></i> Source
+                </a>
+              </div>
+            </div>
+          </article>
+
+          <!-- Project 2 -->
+          <article class="glass-card project-card">
+            <div class="project-banner project-banner-s3">
+              <div class="project-tag-pill">Cloud Storage &amp; Automation</div>
+              <div class="banner-icon"><i class="fa-solid fa-cloud-arrow-up"></i></div>
+            </div>
+            <div class="project-content">
+              <h3 class="project-title">S3 Automated Media Processor</h3>
+              <p class="project-desc">
+                Event-driven cloud storage pipeline. Whenever an image is uploaded to an S3 bucket, an S3 Event Notification triggers a Python Lambda function to compress and catalog metadata.
+              </p>
+              <div class="project-tech-tags">
+                <span>Amazon S3</span>
+                <span>Boto3</span>
+                <span>EventBridge</span>
+                <span>CloudWatch</span>
+              </div>
+              <div class="project-actions">
+                <a href="https://github.com" target="_blank" rel="noopener noreferrer" class="btn btn-sm btn-outline">
+                  <i class="fa-solid fa-external-link"></i> Architecture
+                </a>
+                <a href="https://github.com" target="_blank" rel="noopener noreferrer" class="project-link" aria-label="GitHub Repo">
+                  <i class="fa-brands fa-github"></i> Source
+                </a>
+              </div>
+            </div>
+          </article>
+
+          <!-- Project 3 -->
+          <article class="glass-card project-card">
+            <div class="project-banner project-banner-python">
+              <div class="project-tag-pill">DevOps &amp; Cloud Economics</div>
+              <div class="banner-icon"><i class="fa-solid fa-chart-pie"></i></div>
+            </div>
+            <div class="project-content">
+              <h3 class="project-title">AWS Cost Sentinel &amp; Alert Bot</h3>
+              <p class="project-desc">
+                A scheduled Python bot querying AWS Cost Explorer API to detect anomalies and send daily summaries to Discord/Slack, preventing unexpected cloud billing surprises.
+              </p>
+              <div class="project-tech-tags">
+                <span>Python</span>
+                <span>Cost Explorer API</span>
+                <span>EventBridge Cron</span>
+                <span>Webhooks</span>
+              </div>
+              <div class="project-actions">
+                <a href="https://github.com" target="_blank" rel="noopener noreferrer" class="btn btn-sm btn-outline">
+                  <i class="fa-solid fa-external-link"></i> Details
+                </a>
+                <a href="https://github.com" target="_blank" rel="noopener noreferrer" class="project-link" aria-label="GitHub Repo">
+                  <i class="fa-brands fa-github"></i> Source
+                </a>
+              </div>
+            </div>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <!-- INTERACTIVE TERMINAL PLAYGROUND -->
+    <section class="section terminal-section" id="terminal">
+      <div class="container">
+        <div class="section-header">
+          <span class="section-tag"><i class="fa-solid fa-terminal"></i> Interactive Shell</span>
+          <h2 class="section-title">Live Cloud <span class="text-gradient">Console</span></h2>
+          <p class="section-subtitle">Type commands like <code class="inline-code">help</code>, <code class="inline-code">skills</code>, <code class="inline-code">aws</code>, or <code class="inline-code">about</code> to explore interactively.</p>
+        </div>
+
+        <div class="terminal-wrapper glass-card">
+          <div class="terminal-bar">
+            <div class="window-controls">
+              <span class="dot dot-red"></span>
+              <span class="dot dot-yellow"></span>
+              <span class="dot dot-green"></span>
+            </div>
+            <div class="terminal-title">
+              <i class="fa-solid fa-terminal"></i> pranav@cloud-shell:~ (bash)
+            </div>
+            <div class="terminal-actions">
+              <button class="terminal-btn" id="clearTerminalBtn" title="Clear console">
+                <i class="fa-solid fa-trash-can"></i> Clear
+              </button>
+            </div>
+          </div>
+
+          <div class="terminal-body" id="terminalOutput">
+            <div class="term-line welcome-line">
+              <span class="text-cyan">=======================================================</span><br>
+              <span class="text-amber">Welcome to Pranav's Cloud Interactive Shell v1.2</span><br>
+              Type <span class="term-highlight">help</span> to view all available commands.<br>
+              <span class="text-cyan">=======================================================</span>
+            </div>
+          </div>
+
+          <div class="terminal-input-row">
+            <span class="prompt-user">pranav@aws</span><span class="prompt-sep">:</span><span class="prompt-path">~</span><span class="prompt-char">$</span>
+            <input type="text" id="terminalInput" class="terminal-input" placeholder="type 'help' or 'aws'..." autocomplete="off" spellcheck="false">
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- CONTACT SECTION -->
+    <section class="section contact-section" id="contact">
+      <div class="container">
+        <div class="section-header">
+          <span class="section-tag"><i class="fa-solid fa-envelope-open-text"></i> Reach Out</span>
+          <h2 class="section-title">Let's Build Something <span class="text-gradient">Scalable</span></h2>
+          <p class="section-subtitle">Interested in collaborating, hiring, or discussing cloud architectures? Drop a message!</p>
+        </div>
+
+        <div class="contact-grid">
+          <!-- Contact Details / Info Cards -->
+          <div class="contact-info-col">
+            <div class="glass-card contact-card">
+              <div class="contact-item">
+                <div class="contact-item-icon"><i class="fa-solid fa-envelope"></i></div>
+                <div class="contact-item-text">
+                  <span class="contact-label">Email Me</span>
+                  <a href="mailto:pranav.cloud@example.com" class="contact-link">pranav.cloud@example.com</a>
+                </div>
+              </div>
+
+              <div class="contact-item">
+                <div class="contact-item-icon"><i class="fa-brands fa-linkedin-in"></i></div>
+                <div class="contact-item-text">
+                  <span class="contact-label">LinkedIn</span>
+                  <a href="https://linkedin.com" target="_blank" rel="noopener noreferrer" class="contact-link">linkedin.com/in/pranav-cloud</a>
+                </div>
+              </div>
+
+              <div class="contact-item">
+                <div class="contact-item-icon"><i class="fa-brands fa-github"></i></div>
+                <div class="contact-item-text">
+                  <span class="contact-label">GitHub Repository</span>
+                  <a href="https://github.com" target="_blank" rel="noopener noreferrer" class="contact-link">github.com/pranav-cloud</a>
+                </div>
+              </div>
+
+              <div class="contact-item">
+                <div class="contact-item-icon"><i class="fa-solid fa-location-dot"></i></div>
+                <div class="contact-item-text">
+                  <span class="contact-label">Location</span>
+                  <span class="contact-val">Available Worldwide (Remote / Hybrid)</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- AWS Cloud Tip Card -->
+            <div class="glass-card tip-card">
+              <i class="fa-solid fa-lightbulb text-amber tip-icon"></i>
+              <div>
+                <h4>Serverless Philosophy</h4>
+                <p>"The best server is no server at all. Focus on business logic; let the cloud handle capacity, resilience, and scaling."</p>
+              </div>
+            </div>
+          </div>
+
+          <!-- Modern Form Card -->
+          <div class="glass-card contact-form-card">
+            <div class="form-header">
+              <h3><i class="fa-solid fa-paper-plane text-gradient-accent"></i> Send a Message</h3>
+              <p>Direct pipeline to my inbox. Responses typically within 24 hours.</p>
+            </div>
+
+            <form id="contactForm" class="contact-form">
+              <div class="form-group">
+                <label for="name"><i class="fa-solid fa-user"></i> Full Name</label>
+                <div class="input-wrapper">
+                  <input type="text" id="name" name="name" placeholder="e.g. Alex Morgan" required>
+                  <span class="input-focus-line"></span>
+                </div>
+              </div>
+
+              <div class="form-group">
+                <label for="email"><i class="fa-solid fa-at"></i> Email Address</label>
+                <div class="input-wrapper">
+                  <input type="email" id="email" name="email" placeholder="alex@company.com" required>
+                  <span class="input-focus-line"></span>
+                </div>
+              </div>
+
+              <div class="form-group">
+                <label for="subject"><i class="fa-solid fa-tag"></i> Subject</label>
+                <div class="input-wrapper">
+                  <input type="text" id="subject" name="subject" placeholder="Project Inquiry / Job Opportunity" required>
+                  <span class="input-focus-line"></span>
+                </div>
+              </div>
+
+              <div class="form-group">
+                <label for="message"><i class="fa-solid fa-message"></i> Your Message</label>
+                <div class="input-wrapper">
+                  <textarea id="message" name="message" rows="4" placeholder="Hi Pranav, I'd like to discuss..." required></textarea>
+                  <span class="input-focus-line"></span>
+                </div>
+              </div>
+
+              <button type="submit" class="btn btn-primary btn-block" id="submitBtn">
+                <span class="btn-text">
+                  <i class="fa-solid fa-paper-plane"></i> Send Message
+                </span>
+                <span class="btn-loader" style="display: none;">
+                  <i class="fa-solid fa-spinner fa-spin"></i> Dispatching via Serverless...
+                </span>
+              </button>
+            </form>
+
+            <!-- Status Alert Box -->
+            <div id="status" class="status-box" style="display: none;"></div>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- FOOTER -->
+  <footer class="footer">
+    <div class="container footer-container">
+      <div class="footer-left">
+        <a href="#home" class="footer-brand">
+          <span class="brand-bracket">&lt;</span>
+          <span class="brand-name">PK</span>
+          <span class="brand-slash">/</span>
+          <span class="brand-bracket">&gt;</span>
+        </a>
+        <p>&copy; 2026 Pranav K. Crafted with precision, modern CSS3 &amp; vanilla JS.</p>
+      </div>
+
+      <div class="footer-center">
+        <span class="badge-status-pill">
+          <span class="dot-beacon-small"></span> AWS Cloud Enthusiast
+        </span>
+      </div>
+
+      <div class="footer-right">
+        <a href="#home" class="back-to-top" id="backToTop" aria-label="Back to top">
+          <i class="fa-solid fa-chevron-up"></i>
+        </a>
+      </div>
+    </div>
+  </footer>
+
+  <!-- Toast Notification Container -->
+  <div id="toastNotification" class="toast-notification"></div>
+
+  <!-- JavaScript -->
+  <script src="script.js"></script>
+</body>
+</html>
