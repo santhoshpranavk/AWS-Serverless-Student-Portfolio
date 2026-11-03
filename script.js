@@ -4,7 +4,7 @@
  * Modern, Interactive Frontend Script
  */
 
-const API_URL = "https://xdqk07kdna.execute-api.ap-south-1.amazonaws.com/contact";
+const API_URL = "https://90y9wzfm46tg51xd.qws.lambda-web.ap-south-1.on.aws/api/contact";
 const PROJECTS_API_URL = "https://gtk9yvwb32rv0k0y.qws.lambda-web.ap-south-1.on.aws/api/projects";
 
 document.addEventListener('DOMContentLoaded', () => {
