@@ -1,0 +1,24 @@
+
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <rect width="64" height="64" rx="14" fill="#101827"/>
+
+  <path
+    d="M14 39 Q7 38 8 30 Q9 24 16 24
+       Q19 13 31 15 Q41 15 45 25
+       Q55 24 56 34 Q56 42 47 42 H18"
+    fill="none"
+    stroke="#38bdf8"
+    stroke-width="3.5"
+    stroke-linecap="round"
+  />
+
+  <text
+    x="32"
+    y="36"
+    font-family="Arial, sans-serif"
+    font-size="19"
+    font-weight="800"
+    text-anchor="middle"
+    fill="#f8fafc"
+  >PK</text>
+</svg>
