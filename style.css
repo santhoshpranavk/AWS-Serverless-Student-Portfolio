@@ -1713,7 +1713,7 @@ body {
    ========================================================================== */
 @media (max-width: 992px) {
   .hero-container {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
     gap: 3rem;
   }
   
@@ -1773,5 +1773,20 @@ body {
   .footer-left {
     flex-direction: column;
     gap: 0.6rem;
+  }
+}
+/* Mobile Hero - Explore System spacing */
+@media (max-width: 768px) {
+  .hero-section {
+    padding-bottom: 7rem;
+  }
+
+  .scroll-down-indicator {
+    bottom: 2rem;
+    left: 50%;
+    transform: translateX(-50%);
+    width: max-content;
+    max-width: 90%;
+    text-align: center;
   }
 }
