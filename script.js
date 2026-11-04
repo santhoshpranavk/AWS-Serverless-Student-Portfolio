@@ -281,7 +281,7 @@ Building serverless applications with AWS Lambda, API Gateway, and DynamoDB.
 <span class="text-green">}</span>
     `,
     contact: () => `
-Email: <a href="mailto:pranav.cloud@example.com" class="text-cyan">pranav.cloud@example.com</a>
+Email: <a href="mailto:santhoshpranavk@gmail.com" class="text-cyan">santhoshpranavk@gmail.com</a>
 LinkedIn: <a href="https://linkedin.com" target="_blank" class="text-cyan">linkedin.com/in/pranav-cloud</a>
 GitHub: <a href="https://github.com" target="_blank" class="text-cyan">github.com/pranav-cloud</a>
     `,
@@ -494,7 +494,7 @@ function initCopyEmail() {
   if (!copyBtn) return;
 
   copyBtn.addEventListener('click', () => {
-    const email = copyBtn.getAttribute('data-email') || 'pranav.cloud@example.com';
+    const email = copyBtn.getAttribute('data-email') || 'santhoshpranavk@gmail.com';
     navigator.clipboard.writeText(email).then(() => {
       const label = copyBtn.querySelector('.btn-copy-label');
       if (label) {
@@ -506,7 +506,7 @@ function initCopyEmail() {
       }
       showToast('Email address copied to clipboard!');
     }).catch(() => {
-      showToast('Email: pranav.cloud@example.com');
+      showToast('Email: santhoshpranavk@gmail.com');
     });
   });
 }
