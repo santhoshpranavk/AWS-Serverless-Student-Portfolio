@@ -411,7 +411,7 @@ function initContactForm() {
       if (response.ok) {
         showStatus(`
           <strong>✓ Message sent successfully!</strong><br>
-          Thank you, ${escapeHTML(name)}. Your message has been stored in AWS DynamoDB.
+          Thank you, ${escapeHTML(name)}. Your message has been accepted for email delivery.
         `, 'success');
 
         form.reset();
