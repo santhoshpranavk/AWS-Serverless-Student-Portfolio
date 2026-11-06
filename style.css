@@ -1790,3 +1790,151 @@ body {
     text-align: center;
   }
 }
+
+
+
+/* ==========================================
+   BLOG SECTION - CLOUD JOURNAL
+   ========================================== */
+
+.blog-section {
+  position: relative;
+}
+
+.blog-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr));
+  gap: 1.5rem;
+  width: 100%;
+}
+
+.blog-placeholder {
+  grid-column: 1 / -1;
+  padding: 3rem 2rem;
+  text-align: center;
+}
+
+.blog-placeholder-content {
+  max-width: 550px;
+  margin: 0 auto;
+}
+
+.blog-placeholder-content > i {
+  display: inline-block;
+  font-size: 3rem;
+  color: #38bdf8;
+  margin-bottom: 1.5rem;
+}
+
+.blog-placeholder-content h3 {
+  font-size: 1.5rem;
+  font-weight: 700;
+  margin-bottom: 1rem;
+}
+
+.blog-placeholder-content p {
+  font-size: 1rem;
+  line-height: 1.8;
+  opacity: 0.8;
+}
+
+/* Blog Section - Mobile Responsiveness */
+@media (max-width: 768px) {
+  .blog-grid {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 1rem;
+  }
+
+  .blog-placeholder {
+    padding: 2rem 1.25rem;
+  }
+
+  .blog-placeholder-content > i {
+    font-size: 2.5rem;
+  }
+
+  .blog-placeholder-content h3 {
+    font-size: 1.25rem;
+  }
+
+  .blog-placeholder-content p {
+    font-size: 0.95rem;
+  }
+}
+
+
+/* ==========================================
+   DYNAMIC BLOG CARDS
+   ========================================== */
+
+.blog-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  padding: 2rem;
+  height: 100%;
+  overflow: hidden;
+  transition: transform 0.3s ease, border-color 0.3s ease;
+}
+
+.blog-card:hover {
+  transform: translateY(-6px);
+  border-color: rgba(56, 189, 248, 0.45);
+}
+
+.blog-card-content {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 1rem;
+  width: 100%;
+  height: 100%;
+}
+
+.blog-card-content .section-tag {
+  margin-bottom: 0;
+}
+
+.blog-card-title {
+  font-size: 1.4rem;
+  font-weight: 700;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+
+.blog-card-date {
+  font-size: 0.85rem;
+  color: #94a3b8;
+}
+
+.blog-card-preview {
+  font-size: 0.95rem;
+  line-height: 1.8;
+  opacity: 0.85;
+  overflow-wrap: anywhere;
+}
+
+.blog-read-btn {
+  margin-top: auto;
+  cursor: pointer;
+}
+
+.blog-card button {
+  max-width: 100%;
+}
+
+/* Mobile-friendly blog cards */
+
+@media (max-width: 768px) {
+  .blog-card {
+    padding: 1.5rem;
+  }
+
+  .blog-card-title {
+    font-size: 1.2rem;
+  }
+
+  .blog-card-preview {
+    font-size: 0.9rem;
+  }
+}

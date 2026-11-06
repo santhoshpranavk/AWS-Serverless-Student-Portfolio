@@ -6,6 +6,7 @@
 
 const API_URL = "https://90y9wzfm46tg51xd.qws.lambda-web.ap-south-1.on.aws/api/contact";
 const PROJECTS_API_URL = "https://90y9wzfm46tg51xd.qws.lambda-web.ap-south-1.on.aws/api/projects";
+const BLOG_API_URL = "https://90y9wzfm46tg51xd.qws.lambda-web.ap-south-1.on.aws/api/blog";
 
 document.addEventListener('DOMContentLoaded', () => {
   initParticleCanvas();
@@ -16,7 +17,189 @@ document.addEventListener('DOMContentLoaded', () => {
   initNavigation();
   initCopyEmail();
   displayPortfolioProjects();
+  displayBlogPosts();
 });
+
+
+/* ==========================================================================
+   9. DYNAMIC AWS DYNAMODB BLOG POSTS
+   ========================================================================== */
+
+async function displayBlogPosts() {
+  const grid = document.getElementById('blog-grid');
+
+  if (!grid) {
+    console.warn('Blog grid not found.');
+    return;
+  }
+
+  // Display a loading message.
+  grid.replaceChildren();
+
+  const loadingCard = document.createElement('div');
+  loadingCard.className = 'glass-card blog-placeholder';
+  loadingCard.textContent = 'Loading blog posts from AWS...';
+  grid.appendChild(loadingCard);
+
+  try {
+    // Request published posts from AWS Lambda.
+    const response = await fetch(BLOG_API_URL);
+
+    if (!response.ok) {
+      throw new Error(
+        `Blog API returned HTTP ${response.status}`
+      );
+    }
+
+    const data = await response.json();
+
+    if (!Array.isArray(data.posts)) {
+      throw new Error('Invalid Blog API response');
+    }
+
+    // Clear the loading message.
+    grid.replaceChildren();
+
+    // Show an empty state when no posts exist.
+    if (data.posts.length === 0) {
+      const emptyCard = document.createElement('div');
+      emptyCard.className = 'glass-card blog-placeholder';
+      emptyCard.textContent =
+        'No published blog posts yet. Check back soon!';
+
+      grid.appendChild(emptyCard);
+      return;
+    }
+
+    // Create a card for each published blog post.
+    data.posts.forEach((post) => {
+      if (!post || typeof post !== 'object') {
+        return;
+      }
+
+      const card = document.createElement('article');
+      card.className = 'glass-card blog-card';
+
+      const contentWrapper = document.createElement('div');
+      contentWrapper.className = 'blog-card-content';
+
+      // Blog category label.
+      const category = document.createElement('span');
+      category.className = 'section-tag';
+      category.textContent = 'AWS Cloud Journal';
+
+      // Blog title.
+      const title = document.createElement('h3');
+      title.className = 'blog-card-title';
+      title.textContent =
+        typeof post.title === 'string'
+          ? post.title
+          : 'Untitled Blog Post';
+
+      // Publication date.
+      const date = document.createElement('p');
+      date.className = 'blog-card-date';
+
+      const parsedDate = new Date(post.createdAt);
+
+      date.textContent = Number.isNaN(parsedDate.getTime())
+        ? 'Date unavailable'
+        : parsedDate.toLocaleDateString('en-IN', {
+            year: 'numeric',
+            month: 'long',
+            day: 'numeric',
+            timeZone: 'UTC'
+          });
+
+      // Blog article content.
+      const articleText =
+        typeof post.content === 'string'
+          ? post.content
+          : '';
+
+      // Show a short preview initially.
+      const preview = document.createElement('p');
+      preview.className = 'blog-card-preview';
+
+      const previewLength = 180;
+
+      preview.textContent =
+        articleText.length > previewLength
+          ? articleText.slice(0, previewLength).trimEnd() + '...'
+          : articleText;
+
+      // Button to expand the full article.
+      const readButton = document.createElement('button');
+      readButton.type = 'button';
+      readButton.className = 'btn btn-outline blog-read-btn';
+      readButton.textContent = 'Read Full Article';
+
+      let expanded = false;
+
+      readButton.addEventListener('click', () => {
+        expanded = !expanded;
+
+        preview.textContent = expanded
+          ? articleText
+          : articleText.length > previewLength
+            ? articleText.slice(0, previewLength).trimEnd() + '...'
+            : articleText;
+
+        preview.style.whiteSpace = expanded
+          ? 'pre-line'
+          : 'normal';
+
+        readButton.textContent = expanded
+          ? 'Show Less'
+          : 'Read Full Article';
+
+        readButton.setAttribute(
+          'aria-expanded',
+          String(expanded)
+        );
+      });
+
+      readButton.setAttribute('aria-expanded', 'false');
+
+      // Assemble the card.
+      contentWrapper.append(
+        category,
+        title,
+        date,
+        preview,
+        readButton
+      );
+
+      card.appendChild(contentWrapper);
+      grid.appendChild(card);
+    });
+
+  } catch (error) {
+    console.error(
+      'Failed to load AWS blog posts:',
+      error
+    );
+
+    grid.replaceChildren();
+
+    const errorCard = document.createElement('div');
+    errorCard.className = 'glass-card blog-placeholder';
+
+    const errorMessage = document.createElement('p');
+    errorMessage.textContent =
+      'Unable to load blog posts right now. Please try again later.';
+
+    const retryButton = document.createElement('button');
+    retryButton.type = 'button';
+    retryButton.className = 'btn btn-outline';
+    retryButton.textContent = 'Try Again';
+
+    retryButton.addEventListener('click', displayBlogPosts);
+
+    errorCard.append(errorMessage, retryButton);
+    grid.appendChild(errorCard);
+  }
+}
 
 
 /* ==========================================================================
