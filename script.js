@@ -8,18 +8,42 @@ const API_URL = "https://90y9wzfm46tg51xd.qws.lambda-web.ap-south-1.on.aws/api/c
 const PROJECTS_API_URL = "https://90y9wzfm46tg51xd.qws.lambda-web.ap-south-1.on.aws/api/projects";
 const BLOG_API_URL = "https://90y9wzfm46tg51xd.qws.lambda-web.ap-south-1.on.aws/api/blog";
 
-document.addEventListener('DOMContentLoaded', () => {
-  initParticleCanvas();
-  initTypingEffect();
-  initTelemetryStream();
-  initInteractiveTerminal();
-  initContactForm();
-  initNavigation();
-  initCopyEmail();
-  displayPortfolioProjects();
-  displayBlogPosts();
-});
+// Start the Blog independently of other features.
+function startBlogPosts() {
+  displayBlogPosts().catch((error) => {
+    console.error('Unexpected blog startup error:', error);
+  });
+}
 
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', startBlogPosts, { once: true });
+} else {
+  startBlogPosts();
+}
+
+// Initialize remaining features independently.
+document.addEventListener('DOMContentLoaded', () => {
+  const initializers = [
+    initParticleCanvas,
+    initTypingEffect,
+    initTelemetryStream,
+    initInteractiveTerminal,
+    initContactForm,
+    initNavigation,
+    initCopyEmail,
+    displayPortfolioProjects
+  ];
+
+  initializers.forEach((initialize) => {
+    try {
+      Promise.resolve(initialize()).catch((error) => {
+        console.error(`Failed to initialize ${initialize.name}:`, error);
+      });
+    } catch (error) {
+      console.error(`Failed to initialize ${initialize.name}:`, error);
+    }
+  });
+});
 
 /* ==========================================================================
    9. DYNAMIC AWS DYNAMODB BLOG POSTS
@@ -33,7 +57,6 @@ async function displayBlogPosts() {
     return;
   }
 
-  // Display a loading message.
   grid.replaceChildren();
 
   const loadingCard = document.createElement('div');
@@ -42,13 +65,10 @@ async function displayBlogPosts() {
   grid.appendChild(loadingCard);
 
   try {
-    // Request published posts from AWS Lambda.
     const response = await fetch(BLOG_API_URL);
 
     if (!response.ok) {
-      throw new Error(
-        `Blog API returned HTTP ${response.status}`
-      );
+      throw new Error(`Blog API returned HTTP ${response.status}`);
     }
 
     const data = await response.json();
@@ -57,25 +77,19 @@ async function displayBlogPosts() {
       throw new Error('Invalid Blog API response');
     }
 
-    // Clear the loading message.
     grid.replaceChildren();
 
-    // Show an empty state when no posts exist.
     if (data.posts.length === 0) {
       const emptyCard = document.createElement('div');
       emptyCard.className = 'glass-card blog-placeholder';
       emptyCard.textContent =
         'No published blog posts yet. Check back soon!';
-
       grid.appendChild(emptyCard);
       return;
     }
 
-    // Create a card for each published blog post.
     data.posts.forEach((post) => {
-      if (!post || typeof post !== 'object') {
-        return;
-      }
+      if (!post || typeof post !== 'object') return;
 
       const card = document.createElement('article');
       card.className = 'glass-card blog-card';
@@ -83,12 +97,10 @@ async function displayBlogPosts() {
       const contentWrapper = document.createElement('div');
       contentWrapper.className = 'blog-card-content';
 
-      // Blog category label.
       const category = document.createElement('span');
       category.className = 'section-tag';
       category.textContent = 'AWS Cloud Journal';
 
-      // Blog title.
       const title = document.createElement('h3');
       title.className = 'blog-card-title';
       title.textContent =
@@ -96,12 +108,10 @@ async function displayBlogPosts() {
           ? post.title
           : 'Untitled Blog Post';
 
-      // Publication date.
       const date = document.createElement('p');
       date.className = 'blog-card-date';
 
       const parsedDate = new Date(post.createdAt);
-
       date.textContent = Number.isNaN(parsedDate.getTime())
         ? 'Date unavailable'
         : parsedDate.toLocaleDateString('en-IN', {
@@ -111,28 +121,28 @@ async function displayBlogPosts() {
             timeZone: 'UTC'
           });
 
-      // Blog article content.
       const articleText =
         typeof post.content === 'string'
           ? post.content
           : '';
 
-      // Show a short preview initially.
       const preview = document.createElement('p');
       preview.className = 'blog-card-preview';
 
       const previewLength = 180;
 
-      preview.textContent =
+      const shortPreview =
         articleText.length > previewLength
           ? articleText.slice(0, previewLength).trimEnd() + '...'
           : articleText;
 
-      // Button to expand the full article.
+      preview.textContent = shortPreview;
+
       const readButton = document.createElement('button');
       readButton.type = 'button';
       readButton.className = 'btn btn-outline blog-read-btn';
       readButton.textContent = 'Read Full Article';
+      readButton.setAttribute('aria-expanded', 'false');
 
       let expanded = false;
 
@@ -141,9 +151,7 @@ async function displayBlogPosts() {
 
         preview.textContent = expanded
           ? articleText
-          : articleText.length > previewLength
-            ? articleText.slice(0, previewLength).trimEnd() + '...'
-            : articleText;
+          : shortPreview;
 
         preview.style.whiteSpace = expanded
           ? 'pre-line'
@@ -153,15 +161,9 @@ async function displayBlogPosts() {
           ? 'Show Less'
           : 'Read Full Article';
 
-        readButton.setAttribute(
-          'aria-expanded',
-          String(expanded)
-        );
+        readButton.setAttribute('aria-expanded', String(expanded));
       });
 
-      readButton.setAttribute('aria-expanded', 'false');
-
-      // Assemble the card.
       contentWrapper.append(
         category,
         title,
@@ -175,10 +177,7 @@ async function displayBlogPosts() {
     });
 
   } catch (error) {
-    console.error(
-      'Failed to load AWS blog posts:',
-      error
-    );
+    console.error('Failed to load AWS blog posts:', error);
 
     grid.replaceChildren();
 
@@ -201,14 +200,16 @@ async function displayBlogPosts() {
   }
 }
 
-
 /* ==========================================================================
    1. INTERACTIVE CONSTELLATION / CLOUD MESH CANVAS
    ========================================================================== */
+
 function initParticleCanvas() {
   const canvas = document.getElementById('bg-canvas');
   if (!canvas) return;
+
   const ctx = canvas.getContext('2d');
+  if (!ctx) return;
 
   let width = (canvas.width = window.innerWidth);
   let height = (canvas.height = window.innerHeight);
@@ -230,7 +231,11 @@ function initParticleCanvas() {
     mouse.y = null;
   });
 
-  const particleCount = Math.min(Math.floor((width * height) / 16000), 75);
+  const particleCount = Math.min(
+    Math.floor((width * height) / 16000),
+    75
+  );
+
   const particles = [];
 
   class Particle {
@@ -240,7 +245,9 @@ function initParticleCanvas() {
       this.vx = (Math.random() - 0.5) * 0.6;
       this.vy = (Math.random() - 0.5) * 0.6;
       this.radius = Math.random() * 2 + 1;
-      this.color = Math.random() > 0.4 ? 'rgba(255, 153, 0,' : 'rgba(0, 242, 254,';
+      this.color = Math.random() > 0.4
+        ? 'rgba(255, 153, 0,'
+        : 'rgba(0, 242, 254,';
       this.baseAlpha = Math.random() * 0.4 + 0.2;
     }
 
@@ -255,7 +262,8 @@ function initParticleCanvas() {
         const dx = mouse.x - this.x;
         const dy = mouse.y - this.y;
         const dist = Math.sqrt(dx * dx + dy * dy);
-        if (dist < mouse.maxDist) {
+
+        if (dist > 0 && dist < mouse.maxDist) {
           const force = (mouse.maxDist - dist) / mouse.maxDist;
           this.x -= (dx / dist) * force * 1.5;
           this.y -= (dy / dist) * force * 1.5;
@@ -286,6 +294,7 @@ function initParticleCanvas() {
 
         if (dist < 120) {
           const alpha = (1 - dist / 120) * 0.2;
+
           ctx.beginPath();
           ctx.moveTo(particles[i].x, particles[i].y);
           ctx.lineTo(particles[j].x, particles[j].y);
@@ -304,6 +313,7 @@ function initParticleCanvas() {
 
         if (dist < mouse.maxDist) {
           const alpha = (1 - dist / mouse.maxDist) * 0.35;
+
           ctx.beginPath();
           ctx.moveTo(mouse.x, mouse.y);
           ctx.lineTo(particles[i].x, particles[i].y);
@@ -325,10 +335,10 @@ function initParticleCanvas() {
   animate();
 }
 
-
 /* ==========================================================================
    2. HERO DYNAMIC TYPING EFFECT
    ========================================================================== */
+
 function initTypingEffect() {
   const target = document.getElementById('typingText');
   if (!target) return;
@@ -343,6 +353,7 @@ function initTypingEffect() {
   let roleIdx = 0;
   let charIdx = 0;
   let isDeleting = false;
+
   const typeSpeed = 70;
   const deleteSpeed = 35;
   const pauseTime = 1800;
@@ -353,21 +364,25 @@ function initTypingEffect() {
     if (!isDeleting) {
       target.textContent = currentRole.substring(0, charIdx + 1);
       charIdx++;
+
       if (charIdx === currentRole.length) {
         isDeleting = true;
         setTimeout(type, pauseTime);
         return;
       }
+
       setTimeout(type, typeSpeed);
     } else {
       target.textContent = currentRole.substring(0, charIdx - 1);
       charIdx--;
+
       if (charIdx === 0) {
         isDeleting = false;
         roleIdx = (roleIdx + 1) % roles.length;
         setTimeout(type, 350);
         return;
       }
+
       setTimeout(type, deleteSpeed);
     }
   }
@@ -375,29 +390,29 @@ function initTypingEffect() {
   type();
 }
 
-
 /* ==========================================================================
    3. HERO TELEMETRY STREAM LOGS
    ========================================================================== */
+
 function initTelemetryStream() {
   const container = document.getElementById('codeStream');
   if (!container) return;
 
   const logs = [
     [
-      '[INFO] POST /contact received via API Gateway',
-      '[200] Lambda executed successfully',
-      '[SUCCESS] Record persisted to DynamoDB table: "pranav-contact-messages"'
+      '[INFO] Portfolio backend powered by AWS Lambda Function URL',
+      '[200] AWS Lambda API responding successfully',
+      '[SUCCESS] Published blog posts retrieved from DynamoDB'
     ],
     [
-      '[S3-EVENT] Website assets served through CloudFront',
-      '[CLOUDFRONT] HTTPS request delivered from edge location',
-      '[STATUS] Static portfolio frontend operational'
+      '[GITHUB PAGES] Static portfolio frontend delivered over HTTPS',
+      '[AWS LAMBDA] Serverless backend available in ap-south-1',
+      '[STATUS] Portfolio frontend operational'
     ],
     [
-      '[IAM] Lambda execution role verified',
-      '[DYNAMODB] PutItem operation completed',
-      '[HEALTHCHECK] Serverless contact pipeline operational'
+      '[IAM] Lambda execution role configured',
+      '[DYNAMODB] Projects and blog data available',
+      '[SES] Contact messages processed through Amazon SES'
     ]
   ];
 
@@ -406,23 +421,31 @@ function initTelemetryStream() {
   setInterval(() => {
     currentSet = (currentSet + 1) % logs.length;
     container.style.opacity = '0';
+
     setTimeout(() => {
       container.innerHTML = logs[currentSet]
         .map((line, idx) => {
-          if (idx === 2) return `<code><span style="color:#34d399;">${escapeHTML(line)}</span></code>`;
-          if (idx === 1) return `<code><span style="color:#60a5fa;">${escapeHTML(line)}</span></code>`;
+          if (idx === 2) {
+            return `<code><span style="color:#34d399;">${escapeHTML(line)}</span></code>`;
+          }
+
+          if (idx === 1) {
+            return `<code><span style="color:#60a5fa;">${escapeHTML(line)}</span></code>`;
+          }
+
           return `<code>${escapeHTML(line)}</code>`;
         })
         .join('');
+
       container.style.opacity = '1';
     }, 250);
   }, 4000);
 }
 
-
 /* ==========================================================================
    4. INTERACTIVE TERMINAL PLAYGROUND
    ========================================================================== */
+
 function initInteractiveTerminal() {
   const input = document.getElementById('terminalInput');
   const output = document.getElementById('terminalOutput');
@@ -444,32 +467,39 @@ function initInteractiveTerminal() {
   <span class="term-highlight">whoami</span>     - Current visitor
   <span class="term-highlight">clear</span>      - Clear terminal
     `,
+
     about: () => `
 <span class="text-amber">Pranav K</span> - Cloud Computing Student & AWS Enthusiast.
-Building serverless applications with AWS Lambda, API Gateway, and DynamoDB.
+Building serverless applications with AWS Lambda and DynamoDB.
     `,
+
     skills: () => `
-<span class="text-cyan">Cloud Stack:</span> AWS Lambda, S3, DynamoDB, API Gateway, IAM, CloudWatch
+<span class="text-cyan">Cloud Stack:</span> AWS Lambda, S3, DynamoDB, IAM, CloudWatch, SES
 <span class="text-cyan">Languages:</span> Python, JavaScript, HTML, CSS
     `,
+
     projects: () => `
-1. <span class="text-amber">Serverless Contact Pipeline</span>: API Gateway -> Lambda -> DynamoDB
-2. <span class="text-amber">AWS Portfolio Website</span>: S3 + CloudFront
+1. <span class="text-amber">Serverless Contact Pipeline</span>: Lambda Function URL -> Lambda -> SES
+2. <span class="text-amber">AWS Portfolio Website</span>: GitHub Pages + Lambda + DynamoDB
     `,
+
     aws: () => `
 <span class="text-green">{</span>
   "Region": "ap-south-1",
-  "Service": "API Gateway + Lambda + DynamoDB",
+  "Service": "AWS Lambda + DynamoDB + SES",
   "Status": "ACTIVE"
 <span class="text-green">}</span>
     `,
+
     contact: () => `
 Email: <a href="mailto:santhoshpranavk@gmail.com" class="text-cyan">santhoshpranavk@gmail.com</a>
-LinkedIn: <a href="https://linkedin.com" target="_blank" class="text-cyan">linkedin.com/in/pranav-cloud</a>
-GitHub: <a href="https://github.com" target="_blank" class="text-cyan">github.com/pranav-cloud</a>
+GitHub: <a href="https://github.com/santhoshpranavk" target="_blank" rel="noopener noreferrer" class="text-cyan">github.com/santhoshpranavk</a>
     `,
+
     whoami: () => `<span class="text-cyan">guest-visitor</span>`,
+
     date: () => new Date().toUTCString(),
+
     clear: () => {
       output.innerHTML = '';
       return '';
@@ -488,9 +518,16 @@ GitHub: <a href="https://github.com" target="_blank" class="text-cyan">github.co
 
       const line = document.createElement('div');
       line.className = 'term-line';
-      line.innerHTML = `<span class="term-cmd-echo"><span class="prompt-user">pranav@aws</span>:<span class="prompt-path">~</span>$ <span class="echo-text">${escapeHTML(rawCmd)}</span></span>`;
+
+      line.innerHTML =
+        `<span class="term-cmd-echo">` +
+        `<span class="prompt-user">pranav@aws</span>:` +
+        `<span class="prompt-path">~</span>$ ` +
+        `<span class="echo-text">${escapeHTML(rawCmd)}</span>` +
+        `</span>`;
 
       let responseHTML = '';
+
       if (cmd === 'clear') {
         output.innerHTML = '';
         input.value = '';
@@ -498,7 +535,11 @@ GitHub: <a href="https://github.com" target="_blank" class="text-cyan">github.co
       } else if (commands[cmd]) {
         responseHTML = commands[cmd](args);
       } else {
-        responseHTML = `<span style="color:#ef4444;">command not found: ${escapeHTML(cmd)}. Type <span class="term-highlight">help</span>.</span>`;
+        responseHTML =
+          `<span style="color:#ef4444;">` +
+          `command not found: ${escapeHTML(cmd)}. ` +
+          `Type <span class="term-highlight">help</span>.` +
+          `</span>`;
       }
 
       if (responseHTML) {
@@ -511,11 +552,13 @@ GitHub: <a href="https://github.com" target="_blank" class="text-cyan">github.co
       output.appendChild(line);
       input.value = '';
       output.scrollTop = output.scrollHeight;
+
     } else if (e.key === 'ArrowUp') {
       if (historyIdx > 0) {
         historyIdx--;
         input.value = history[historyIdx];
       }
+
     } else if (e.key === 'ArrowDown') {
       if (historyIdx < history.length - 1) {
         historyIdx++;
@@ -531,17 +574,18 @@ GitHub: <a href="https://github.com" target="_blank" class="text-cyan">github.co
     clearBtn.addEventListener('click', () => {
       output.innerHTML = `
         <div class="term-line welcome-line">
-          <span class="text-amber">Console cleared.</span> Type <span class="term-highlight">help</span> to explore.
+          <span class="text-amber">Console cleared.</span>
+          Type <span class="term-highlight">help</span> to explore.
         </div>
       `;
     });
   }
 }
 
-
 /* ==========================================================================
    5. CONTACT FORM & REAL AWS SERVERLESS API
    ========================================================================== */
+
 function initContactForm() {
   const form = document.getElementById('contactForm');
   const statusBox = document.getElementById('status');
@@ -554,7 +598,9 @@ function initContactForm() {
 
     const name = document.getElementById('name').value.trim();
     const email = document.getElementById('email').value.trim();
-    const subject = document.getElementById('subject').value.trim() || 'General Inquiry';
+    const subject =
+      document.getElementById('subject').value.trim() ||
+      'General Inquiry';
     const message = document.getElementById('message').value.trim();
 
     if (!name || !email || !message) {
@@ -563,16 +609,17 @@ function initContactForm() {
     }
 
     const requestData = {
-      name: name,
-      email: email,
-      subject: subject,
-      message: message
+      name,
+      email,
+      subject,
+      message
     };
 
     const btnText = submitBtn.querySelector('.btn-text');
     const btnLoader = submitBtn.querySelector('.btn-loader');
 
     submitBtn.disabled = true;
+
     if (btnText) btnText.style.display = 'none';
     if (btnLoader) btnLoader.style.display = 'inline-flex';
 
@@ -594,7 +641,8 @@ function initContactForm() {
       if (response.ok) {
         showStatus(`
           <strong>✓ Message sent successfully!</strong><br>
-          Thank you, ${escapeHTML(name)}. Your message has been accepted for email delivery.
+          Thank you, ${escapeHTML(name)}.
+          Your message has been accepted for email delivery.
         `, 'success');
 
         form.reset();
@@ -607,12 +655,16 @@ function initContactForm() {
       }
 
     } catch (error) {
+      console.error('Contact form request failed:', error);
+
       showStatus(`
         <strong>Network error.</strong><br>
         Unable to reach the AWS API. Please try again later.
       `, 'error');
+
     } finally {
       submitBtn.disabled = false;
+
       if (btnText) btnText.style.display = 'inline-flex';
       if (btnLoader) btnLoader.style.display = 'none';
     }
@@ -625,10 +677,10 @@ function initContactForm() {
   }
 }
 
-
 /* ==========================================================================
    6. NAVIGATION & MOBILE TOGGLE
    ========================================================================== */
+
 function initNavigation() {
   const navToggle = document.getElementById('navToggle');
   const navMenu = document.getElementById('navMenu');
@@ -647,6 +699,7 @@ function initNavigation() {
   }
 
   const sections = document.querySelectorAll('section[id]');
+
   window.addEventListener('scroll', () => {
     let current = '';
     const scrollY = window.pageYOffset;
@@ -654,13 +707,18 @@ function initNavigation() {
     sections.forEach((section) => {
       const sectionHeight = section.offsetHeight;
       const sectionTop = section.offsetTop - 120;
-      if (scrollY >= sectionTop && scrollY < sectionTop + sectionHeight) {
+
+      if (
+        scrollY >= sectionTop &&
+        scrollY < sectionTop + sectionHeight
+      ) {
         current = section.getAttribute('id');
       }
     });
 
     navLinks.forEach((link) => {
       link.classList.remove('active');
+
       if (link.getAttribute('href') === `#${current}`) {
         link.classList.add('active');
       }
@@ -668,25 +726,31 @@ function initNavigation() {
   });
 }
 
-
 /* ==========================================================================
    7. COPY EMAIL & TOAST
    ========================================================================== */
+
 function initCopyEmail() {
   const copyBtn = document.getElementById('copyEmailBtn');
   if (!copyBtn) return;
 
   copyBtn.addEventListener('click', () => {
-    const email = copyBtn.getAttribute('data-email') || 'santhoshpranavk@gmail.com';
+    const email =
+      copyBtn.getAttribute('data-email') ||
+      'santhoshpranavk@gmail.com';
+
     navigator.clipboard.writeText(email).then(() => {
       const label = copyBtn.querySelector('.btn-copy-label');
+
       if (label) {
         const originalText = label.textContent;
         label.textContent = 'Copied!';
+
         setTimeout(() => {
           label.textContent = originalText;
         }, 2000);
       }
+
       showToast('Email address copied to clipboard!');
     }).catch(() => {
       showToast('Email: santhoshpranavk@gmail.com');
@@ -698,7 +762,11 @@ function showToast(message) {
   const toast = document.getElementById('toastNotification');
   if (!toast) return;
 
-  toast.innerHTML = `<i class="fa-solid fa-circle-check" style="color:#ff9900;"></i> <span>${escapeHTML(message)}</span>`;
+  toast.innerHTML =
+    `<i class="fa-solid fa-circle-check" ` +
+    `style="color:#ff9900;"></i> ` +
+    `<span>${escapeHTML(message)}</span>`;
+
   toast.classList.add('show');
 
   setTimeout(() => {
@@ -707,7 +775,7 @@ function showToast(message) {
 }
 
 function escapeHTML(str) {
-  return str.replace(/[&<>'"]/g,
+  return String(str).replace(/[&<>'"]/g,
     tag => ({
       '&': '&amp;',
       '<': '&lt;',
@@ -718,44 +786,52 @@ function escapeHTML(str) {
   );
 }
 
-// Fetch portfolio projects from AWS Lambda and DynamoDB
+// Fetch portfolio projects from AWS Lambda and DynamoDB.
 async function fetchPortfolioProjects() {
   try {
     const response = await fetch(PROJECTS_API_URL);
 
     if (!response.ok) {
-      throw new Error("Projects API returned HTTP " + response.status);
+      throw new Error(
+        'Projects API returned HTTP ' + response.status
+      );
     }
 
     const data = await response.json();
-    console.log("AWS DynamoDB Projects:", data.projects);
+    console.log('AWS DynamoDB Projects:', data.projects);
 
     return data.projects;
   } catch (error) {
-    console.error("Failed to fetch portfolio projects:", error);
+    console.error('Failed to fetch portfolio projects:', error);
     return [];
   }
 }
 
 /* ==========================================================================
    8. DYNAMIC DYNAMODB PROJECT CARDS
-   Keeps all existing Antigravity cards and uses their existing CSS classes.
+   Keeps existing static project cards and CSS classes.
    ========================================================================== */
+
 async function displayPortfolioProjects() {
   const grid = document.getElementById('projects-grid');
+
   if (!grid) {
-    console.warn('Projects grid not found; skipping dynamic projects.');
+    console.warn(
+      'Projects grid not found; skipping dynamic projects.'
+    );
     return;
   }
 
   const projects = await fetchPortfolioProjects();
+
   if (!Array.isArray(projects)) {
     console.warn('Projects API did not return an array.');
     return;
   }
 
-  // Remove only previously generated cards, never the original HTML cards.
-  grid.querySelectorAll('[data-dynamodb-project="true"]').forEach(card => card.remove());
+  // Remove only previously generated cards.
+  grid.querySelectorAll('[data-dynamodb-project="true"]')
+    .forEach(card => card.remove());
 
   projects.forEach(project => {
     if (!project || typeof project !== 'object') return;
@@ -773,9 +849,11 @@ async function displayPortfolioProjects() {
 
     const bannerIcon = document.createElement('div');
     bannerIcon.className = 'banner-icon';
+
     const cloudIcon = document.createElement('i');
     cloudIcon.className = 'fa-solid fa-cloud';
     cloudIcon.setAttribute('aria-hidden', 'true');
+
     bannerIcon.appendChild(cloudIcon);
     banner.append(category, bannerIcon);
 
@@ -784,21 +862,28 @@ async function displayPortfolioProjects() {
 
     const title = document.createElement('h3');
     title.className = 'project-title';
-    title.textContent = typeof project.title === 'string' && project.title.trim()
-      ? project.title
-      : 'Untitled Project';
+
+    title.textContent =
+      typeof project.title === 'string' &&
+      project.title.trim()
+        ? project.title
+        : 'Untitled Project';
 
     const description = document.createElement('p');
     description.className = 'project-desc';
-    description.textContent = typeof project.description === 'string'
-      ? project.description
-      : '';
+
+    description.textContent =
+      typeof project.description === 'string'
+        ? project.description
+        : '';
 
     const tags = document.createElement('div');
     tags.className = 'project-tech-tags';
+
     if (Array.isArray(project.technologies)) {
       project.technologies.forEach(technology => {
         if (typeof technology !== 'string') return;
+
         const tag = document.createElement('span');
         tag.textContent = technology;
         tags.appendChild(tag);
@@ -807,37 +892,62 @@ async function displayPortfolioProjects() {
 
     const actions = document.createElement('div');
     actions.className = 'project-actions';
-    const githubUrl = typeof project.githubUrl === 'string'
-      ? project.githubUrl.trim()
-      : '';
 
-    // Only allow a genuine HTTPS GitHub link from API data.
+    const githubUrl =
+      typeof project.githubUrl === 'string'
+        ? project.githubUrl.trim()
+        : '';
+
     let validGithubUrl = null;
+
     try {
       const parsed = new URL(githubUrl);
-      if (parsed.protocol === 'https:' &&
-          (parsed.hostname === 'github.com' || parsed.hostname === 'www.github.com')) {
+
+      if (
+        parsed.protocol === 'https:' &&
+        (
+          parsed.hostname === 'github.com' ||
+          parsed.hostname === 'www.github.com'
+        )
+      ) {
         validGithubUrl = parsed.href;
       }
     } catch (error) {
-      // Missing or invalid links simply won't create a Source button.
+      // Invalid or missing URL: omit Source button.
     }
 
     if (validGithubUrl) {
       const link = document.createElement('a');
+
       link.href = validGithubUrl;
       link.target = '_blank';
       link.rel = 'noopener noreferrer';
       link.className = 'project-link';
-      link.setAttribute('aria-label', `GitHub Repo: ${title.textContent}`);
+
+      link.setAttribute(
+        'aria-label',
+        `GitHub Repo: ${title.textContent}`
+      );
+
       const githubIcon = document.createElement('i');
       githubIcon.className = 'fa-brands fa-github';
       githubIcon.setAttribute('aria-hidden', 'true');
-      link.append(githubIcon, document.createTextNode(' Source'));
+
+      link.append(
+        githubIcon,
+        document.createTextNode(' Source')
+      );
+
       actions.appendChild(link);
     }
 
-    content.append(title, description, tags, actions);
+    content.append(
+      title,
+      description,
+      tags,
+      actions
+    );
+
     card.append(banner, content);
     grid.appendChild(card);
   });
