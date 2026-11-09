@@ -7,21 +7,27 @@
  *
  * File: admin.js
  *
- * Amazon Cognito Authentication Controller
+ * Amazon Cognito + AWS Lambda Admin Authorization
  *
  * SECURITY:
  * - Cognito authenticates the user.
- * - Authentication does not grant admin rights.
- * - Dashboard stays hidden until the AWS Lambda
- *   backend verifies administrator permissions.
- * - Never expose access tokens in console logs.
+ * - AWS Lambda verifies administrator permissions.
+ * - Dashboard stays locked unless backend approves.
+ * - Access tokens are never logged or stored here.
  * ============================================================
  */
 
 document.addEventListener("DOMContentLoaded", () => {
 
   // ==========================================================
-  // 1. GET DASHBOARD ELEMENTS
+  // 1. CONFIGURATION
+  // ==========================================================
+
+  const ADMIN_AUTH_URL =
+    "https://90y9wzfm46tg51xd.qws.lambda-web.ap-south-1.on.aws/api/admin/me";
+
+  // ==========================================================
+  // 2. DASHBOARD ELEMENTS
   // ==========================================================
 
   const adminApp =
@@ -39,12 +45,15 @@ document.addEventListener("DOMContentLoaded", () => {
   const adminLogoutBtn =
     document.getElementById("adminLogoutBtn");
 
-  // ==========================================================
-  // 2. INITIAL SECURITY STATE
-  // ==========================================================
+  // Prevent outdated authorization requests from
+  // unlocking the dashboard after an auth change.
+  let authorizationRequestId = 0;
 
-  // Dashboard is never unlocked merely because
-  // a Cognito access token exists in the browser.
+  let authorizationController = null;
+
+  // ==========================================================
+  // 3. DASHBOARD SECURITY
+  // ==========================================================
 
   function lockDashboard() {
     if (adminApp) {
@@ -56,22 +65,39 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }
 
+  function unlockDashboard() {
+    if (authGate) {
+      authGate.hidden = true;
+    }
+
+    if (adminApp) {
+      adminApp.hidden = false;
+    }
+  }
+
+  function cancelPendingAuthorization() {
+    authorizationRequestId += 1;
+
+    if (authorizationController) {
+      authorizationController.abort();
+      authorizationController = null;
+    }
+  }
+
   lockDashboard();
 
   // ==========================================================
-  // 3. DISPLAY STATUS MESSAGES
+  // 4. STATUS MESSAGES
   // ==========================================================
 
   function setAuthMessage(message) {
-    if (!authGateMessage) {
-      return;
+    if (authGateMessage) {
+      authGateMessage.textContent = message;
     }
-
-    authGateMessage.textContent = message;
   }
 
   // ==========================================================
-  // 4. LOGIN BUTTON STATE
+  // 5. LOGIN BUTTON
   // ==========================================================
 
   function setLoginButtonState({
@@ -101,28 +127,35 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   // ==========================================================
-  // 5. CHECK COGNITO AVAILABILITY
+  // 6. CHECK COGNITO FUNCTIONS
   // ==========================================================
 
   function cognitoFunctionsAvailable() {
     return (
       typeof loginAdminWithCognito === "function" &&
       typeof isCognitoAuthenticated === "function" &&
-      typeof waitForCognitoInitialization === "function"
+      typeof waitForCognitoInitialization === "function" &&
+      typeof getCognitoAccessToken === "function"
     );
   }
 
   // ==========================================================
-  // 6. DISPLAY SIGNED-OUT STATE
+  // 7. SIGNED-OUT STATE
   // ==========================================================
 
   function showSignedOutState() {
+    cancelPendingAuthorization();
+
     lockDashboard();
 
     setAuthMessage(
       "Securely sign in with Amazon Cognito " +
       "to verify your identity and continue."
     );
+
+    if (adminLoginBtn) {
+      adminLoginBtn.hidden = false;
+    }
 
     setLoginButtonState({
       disabled: false,
@@ -131,41 +164,184 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   // ==========================================================
-  // 7. DISPLAY AUTHENTICATED STATE
+  // 8. VERIFY ADMINISTRATOR WITH AWS LAMBDA
   // ==========================================================
 
-  function showAuthenticatedState() {
+  async function verifyAdministratorAccess() {
+    cancelPendingAuthorization();
+
+    const requestId = authorizationRequestId;
+
     lockDashboard();
 
-    setAuthMessage(
-      "Amazon Cognito sign-in completed successfully. " +
-      "Administrator authorization is not configured yet, " +
-      "so dashboard access remains restricted."
-    );
+    if (!cognitoFunctionsAvailable()) {
+      setAuthMessage(
+        "Authentication services are unavailable. " +
+        "Please refresh the page."
+      );
 
-    // Hide the login button after authentication.
-    // A verified admin session will be handled later
-    // through a protected Lambda authorization endpoint.
+      return;
+    }
+
+    const accessToken = getCognitoAccessToken();
+
+    if (!accessToken) {
+      showSignedOutState();
+      return;
+    }
 
     if (adminLoginBtn) {
       adminLoginBtn.hidden = true;
       adminLoginBtn.disabled = true;
     }
 
-    console.info(
-      "[Admin] Cognito authentication completed. " +
-      "Backend administrator authorization is required."
+    setAuthMessage(
+      "Cognito sign-in successful. " +
+      "Verifying administrator permissions with AWS..."
     );
+
+    const controller = new AbortController();
+    authorizationController = controller;
+
+    try {
+      const response = await fetch(
+        ADMIN_AUTH_URL,
+        {
+          method: "GET",
+          mode: "cors",
+          credentials: "omit",
+          cache: "no-store",
+
+          headers: {
+            "Authorization": `Bearer ${accessToken}`,
+            "Accept": "application/json"
+          },
+
+          signal: controller.signal
+        }
+      );
+
+      // Ignore results from obsolete requests.
+      if (
+        requestId !== authorizationRequestId ||
+        controller.signal.aborted
+      ) {
+        return;
+      }
+
+      let result = null;
+
+      try {
+        result = await response.json();
+      } catch {
+        result = null;
+      }
+
+      if (
+        requestId !== authorizationRequestId ||
+        controller.signal.aborted
+      ) {
+        return;
+      }
+
+      // Do not rely only on a successful HTTP status.
+      // Require the backend's explicit authorization.
+      const authorized =
+        response.ok &&
+        result?.status === "success" &&
+        result?.authorized === true &&
+        result?.role === "PortfolioAdmins";
+
+      if (
+        authorized &&
+        isCognitoAuthenticated() &&
+        getCognitoAccessToken() === accessToken
+      ) {
+        unlockDashboard();
+
+        console.info(
+          "[Admin] Administrator authorization verified."
+        );
+
+        return;
+      }
+
+      lockDashboard();
+
+      if (response.status === 401) {
+        setAuthMessage(
+          "Your authentication session is invalid " +
+          "or expired. Please sign in again."
+        );
+      } else if (response.status === 403) {
+        setAuthMessage(
+          "Access denied. Your Cognito account " +
+          "does not have PortfolioAdmins permission."
+        );
+      } else if (response.status === 503) {
+        setAuthMessage(
+          "Administrator verification is temporarily " +
+          "unavailable. Please try again later."
+        );
+      } else {
+        setAuthMessage(
+          "Administrator authorization could not " +
+          "be verified. Dashboard access remains locked."
+        );
+      }
+
+      console.warn(
+        "[Admin] Administrator authorization was not granted."
+      );
+
+    } catch (error) {
+      if (
+        requestId !== authorizationRequestId ||
+        controller.signal.aborted
+      ) {
+        return;
+      }
+
+      lockDashboard();
+
+      setAuthMessage(
+        "Unable to connect to the administrator " +
+        "verification service. Please try again later."
+      );
+
+      // Do not print access tokens or authorization headers.
+      console.error(
+        "[Admin] Authorization request failed:",
+        error.message
+      );
+
+    } finally {
+      if (authorizationController === controller) {
+        authorizationController = null;
+      }
+    }
   }
 
   // ==========================================================
-  // 8. UPDATE AUTHENTICATION INTERFACE
+  // 9. AUTHENTICATED STATE
+  // ==========================================================
+
+  function showAuthenticatedState() {
+    lockDashboard();
+
+    void verifyAdministratorAccess();
+  }
+
+  // ==========================================================
+  // 10. UPDATE AUTHENTICATION INTERFACE
   // ==========================================================
 
   function updateAuthInterface() {
     lockDashboard();
 
     if (!cognitoFunctionsAvailable()) {
+      cancelPendingAuthorization();
+
       setAuthMessage(
         "Authentication services are unavailable. " +
         "Please refresh the page."
@@ -182,16 +358,12 @@ document.addEventListener("DOMContentLoaded", () => {
     if (isCognitoAuthenticated()) {
       showAuthenticatedState();
     } else {
-      if (adminLoginBtn) {
-        adminLoginBtn.hidden = false;
-      }
-
       showSignedOutState();
     }
   }
 
   // ==========================================================
-  // 9. START ADMIN LOGIN
+  // 11. START ADMIN LOGIN
   // ==========================================================
 
   async function startAdminLogin() {
@@ -211,6 +383,8 @@ document.addEventListener("DOMContentLoaded", () => {
       return;
     }
 
+    cancelPendingAuthorization();
+
     lockDashboard();
 
     setAuthMessage(
@@ -226,10 +400,6 @@ document.addEventListener("DOMContentLoaded", () => {
     try {
       const started =
         await loginAdminWithCognito();
-
-      // Normally the browser navigates to Cognito.
-      // If navigation fails or the function returns
-      // without redirecting, restore the interface.
 
       if (started === false) {
         setAuthMessage(
@@ -262,7 +432,7 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   // ==========================================================
-  // 10. CONNECT LOGIN BUTTON
+  // 12. CONNECT LOGIN BUTTON
   // ==========================================================
 
   if (adminLoginBtn) {
@@ -277,13 +447,15 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   // ==========================================================
-  // 11. CONNECT LOGOUT BUTTON
+  // 13. CONNECT LOGOUT BUTTON
   // ==========================================================
 
   if (adminLogoutBtn) {
     adminLogoutBtn.addEventListener(
       "click",
       () => {
+        cancelPendingAuthorization();
+
         lockDashboard();
 
         if (
@@ -300,7 +472,7 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   // ==========================================================
-  // 12. LISTEN FOR COGNITO AUTH CHANGES
+  // 14. AUTHENTICATION CHANGE EVENT
   // ==========================================================
 
   window.addEventListener(
@@ -311,7 +483,7 @@ document.addEventListener("DOMContentLoaded", () => {
   );
 
   // ==========================================================
-  // 13. WAIT FOR AUTHENTICATION INITIALIZATION
+  // 15. INITIALIZE ADMIN DASHBOARD
   // ==========================================================
 
   async function initializeAdminDashboard() {
@@ -346,6 +518,8 @@ document.addEventListener("DOMContentLoaded", () => {
         error
       );
 
+      cancelPendingAuthorization();
+
       lockDashboard();
 
       setAuthMessage(
@@ -361,7 +535,7 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   // ==========================================================
-  // 14. START DASHBOARD CONTROLLER
+  // 16. START ADMIN CONTROLLER
   // ==========================================================
 
   void initializeAdminDashboard();
