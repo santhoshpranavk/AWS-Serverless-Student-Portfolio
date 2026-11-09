@@ -1,0 +1,117 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <title>Admin Dashboard | Pranav K</title>
+
+  <meta name="robots" content="noindex, nofollow">
+
+  <link rel="icon" type="image/svg+xml" href="./favicon.svg">
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+
+  <link
+    href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap"
+    rel="stylesheet"
+  >
+
+  <link
+    rel="stylesheet"
+    href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css"
+  >
+
+  <!-- Separate dashboard stylesheet (created later) -->
+  <link rel="stylesheet" href="admin.css">
+</head>
+
+<body>
+  <main id="adminApp" hidden>
+    <header>
+      <h1>Admin Dashboard</h1>
+      <p>AWS Serverless Student Portfolio</p>
+
+      <button type="button" id="adminLogoutBtn">
+        <i class="fa-solid fa-right-from-bracket"></i>
+        Logout
+      </button>
+    </header>
+
+    <section aria-labelledby="dashboardHeading">
+      <h2 id="dashboardHeading">Dashboard Overview</h2>
+
+      <div id="dashboardStats">
+        <article>
+          <h3>Total Projects</h3>
+          <p id="totalProjects">--</p>
+        </article>
+
+        <article>
+          <h3>Blog Posts</h3>
+          <p id="totalBlogPosts">--</p>
+        </article>
+      </div>
+    </section>
+
+    <section aria-labelledby="projectsHeading">
+      <h2 id="projectsHeading">Manage Projects</h2>
+      <p>Create, update, and delete portfolio projects.</p>
+      <div id="adminProjects"></div>
+    </section>
+
+    <section aria-labelledby="blogHeading">
+      <h2 id="blogHeading">Manage Blog Posts</h2>
+      <p>Create, edit, and publish blog posts.</p>
+      <div id="adminBlogPosts"></div>
+    </section>
+  </main>
+
+  <!-- Authentication gate -->
+  
+<div id="authGate" role="status" aria-live="polite">
+
+  <div class="auth-gate-content">
+
+    <div class="auth-gate-icon">
+      <i class="fa-solid fa-shield-halved"
+         aria-hidden="true"></i>
+    </div>
+
+    <h1>Administrator Access</h1>
+
+    <p id="authGateMessage">
+      Sign in securely with Amazon Cognito
+      to access the portfolio administration dashboard.
+    </p>
+
+    <button
+      type="button"
+      id="adminLoginBtn"
+      class="admin-login-btn"
+      disabled
+      title="Administrator login is being configured"
+    >
+      <i class="fa-solid fa-right-to-bracket"
+         aria-hidden="true"></i>
+      Login with Amazon Cognito
+    </button>
+
+    <p class="auth-security-note">
+      <i class="fa-solid fa-lock"
+         aria-hidden="true"></i>
+      Secure authentication powered by AWS Cognito
+    </p>
+
+  </div>
+
+</div>
+
+
+<!-- Admin Dashboard Controller -->
+<script src="auth.js" defer></script>
+<script src="admin.js" defer></script>
+</body>
+</html>
