@@ -8,14 +8,13 @@
  * OAuth 2.0 Authorization Code + PKCE (S256)
  * AWS Region: ap-south-1 (Mumbai)
  *
- * IMPORTANT:
- * This file handles browser authentication only.
- * AWS Lambda must verify JWT access tokens and
- * administrator permissions for protected API calls.
+ * Authentication tokens are stored in memory only.
+ * AWS Lambda must independently verify access tokens
+ * and administrator permissions.
  */
 
 // ============================================================
-// 1. AMAZON COGNITO CONFIGURATION
+// 1. COGNITO CONFIGURATION
 // ============================================================
 
 const COGNITO_CONFIG = Object.freeze({
@@ -28,11 +27,11 @@ const COGNITO_CONFIG = Object.freeze({
   domain:
     "https://ap-south-1cq6n2fl3z.auth.ap-south-1.amazoncognito.com",
 
-  // Public portfolio callback
+  // Public portfolio login callback
   redirectUri:
     "https://santhoshpranavk.github.io/AWS-Serverless-Student-Portfolio/",
 
-  // Separate administrator dashboard callback
+  // Admin dashboard login callback
   adminRedirectUri:
     "https://santhoshpranavk.github.io/AWS-Serverless-Student-Portfolio/admin.html",
 
@@ -40,18 +39,21 @@ const COGNITO_CONFIG = Object.freeze({
   logoutUri:
     "https://santhoshpranavk.github.io/AWS-Serverless-Student-Portfolio/",
 
+  // NEW: Admin dashboard logout destination
+  adminLogoutUri:
+    "https://santhoshpranavk.github.io/AWS-Serverless-Student-Portfolio/admin.html",
+
   scopes: ["openid", "email"]
 });
 
 // ============================================================
-// 2. AUTHENTICATION CONSTANTS AND STATE
+// 2. AUTHENTICATION STATE
 // ============================================================
 
 const AUTH_STORAGE_KEY =
   "portfolio_cognito_auth_request";
 
 const AUTH_REQUEST_MAX_AGE = 5 * 60 * 1000;
-
 const TOKEN_EXPIRY_BUFFER = 30 * 1000;
 
 const PKCE_VERIFIER_PATTERN =
@@ -60,15 +62,14 @@ const PKCE_VERIFIER_PATTERN =
 const OAUTH_STATE_PATTERN =
   /^[a-f0-9]{64}$/;
 
-// Access tokens remain in JavaScript memory.
-// They are lost on page reload or navigation.
 let cognitoTokens = null;
 let cognitoTokenExpiresAt = 0;
 
 let callbackProcessingPromise = null;
+let cognitoInitializationPromise = null;
 
 // ============================================================
-// 3. ALLOWED CALLBACK URL VALIDATION
+// 3. ALLOWED LOGIN CALLBACKS
 // ============================================================
 
 function getAllowedCognitoRedirectUris() {
@@ -83,45 +84,41 @@ function validateCognitoRedirectUri(redirectUri) {
     typeof redirectUri !== "string" ||
     !getAllowedCognitoRedirectUris().includes(redirectUri)
   ) {
-    throw new Error(
-      "Unsupported Cognito redirect URI."
-    );
+    throw new Error("Unsupported Cognito redirect URI.");
   }
 
   return redirectUri;
 }
 
 // ============================================================
-// 4. SECURE RANDOM VALUE GENERATION
+// 4. SECURE RANDOM GENERATION
 // ============================================================
 
 function generateSecureRandomHex() {
-  if (!window.crypto || !window.crypto.getRandomValues) {
+  if (
+    !window.crypto ||
+    !window.crypto.getRandomValues
+  ) {
     throw new Error(
       "Secure random generation is unavailable."
     );
   }
 
-  const randomBytes = new Uint8Array(32);
+  const bytes = new Uint8Array(32);
+  window.crypto.getRandomValues(bytes);
 
-  window.crypto.getRandomValues(randomBytes);
-
-  return Array.from(randomBytes, (byte) =>
+  return Array.from(bytes, (byte) =>
     byte.toString(16).padStart(2, "0")
   ).join("");
 }
 
 // ============================================================
-// 5. PKCE CODE VERIFIER
+// 5. PKCE HELPERS
 // ============================================================
 
 function generateCodeVerifier() {
   return generateSecureRandomHex();
 }
-
-// ============================================================
-// 6. PKCE SHA-256 CODE CHALLENGE
-// ============================================================
 
 async function generateCodeChallenge(codeVerifier) {
   if (
@@ -131,24 +128,24 @@ async function generateCodeChallenge(codeVerifier) {
     throw new Error("Invalid PKCE code verifier.");
   }
 
-  if (!window.crypto || !window.crypto.subtle) {
+  if (
+    !window.crypto ||
+    !window.crypto.subtle
+  ) {
     throw new Error(
       "Secure cryptographic operations are unavailable."
     );
   }
 
-  const encodedVerifier =
-    new TextEncoder().encode(codeVerifier);
+  const encoded = new TextEncoder().encode(codeVerifier);
 
   const digest = await window.crypto.subtle.digest(
     "SHA-256",
-    encodedVerifier
+    encoded
   );
 
-  const digestBytes = new Uint8Array(digest);
-
   const base64 = btoa(
-    String.fromCharCode(...digestBytes)
+    String.fromCharCode(...new Uint8Array(digest))
   );
 
   return base64
@@ -157,16 +154,12 @@ async function generateCodeChallenge(codeVerifier) {
     .replace(/=+$/, "");
 }
 
-// ============================================================
-// 7. OAUTH STATE GENERATION
-// ============================================================
-
 function generateOAuthState() {
   return generateSecureRandomHex();
 }
 
 // ============================================================
-// 8. TEMPORARY LOGIN REQUEST STORAGE
+// 6. TEMPORARY LOGIN REQUEST STORAGE
 // ============================================================
 
 function storeAuthRequest(
@@ -190,18 +183,14 @@ function storeAuthRequest(
 
   validateCognitoRedirectUri(redirectUri);
 
-  const authRequest = {
-    codeVerifier,
-    state,
-    redirectUri,
-    createdAt: Date.now()
-  };
-
-  // Temporary PKCE and state values are stored
-  // only for this browser tab's login attempt.
   sessionStorage.setItem(
     AUTH_STORAGE_KEY,
-    JSON.stringify(authRequest)
+    JSON.stringify({
+      codeVerifier,
+      state,
+      redirectUri,
+      createdAt: Date.now()
+    })
   );
 }
 
@@ -210,7 +199,7 @@ function clearAuthRequest() {
 }
 
 // ============================================================
-// 9. BUILD COGNITO AUTHORIZATION URL
+// 7. BUILD LOGIN URL
 // ============================================================
 
 function buildCognitoAuthorizationUrl(
@@ -239,46 +228,19 @@ function buildCognitoAuthorizationUrl(
     COGNITO_CONFIG.domain
   );
 
-  url.searchParams.set(
-    "response_type",
-    "code"
-  );
-
-  url.searchParams.set(
-    "client_id",
-    COGNITO_CONFIG.clientId
-  );
-
-  url.searchParams.set(
-    "redirect_uri",
-    redirectUri
-  );
-
-  url.searchParams.set(
-    "scope",
-    COGNITO_CONFIG.scopes.join(" ")
-  );
-
-  url.searchParams.set(
-    "code_challenge_method",
-    "S256"
-  );
-
-  url.searchParams.set(
-    "code_challenge",
-    codeChallenge
-  );
-
-  url.searchParams.set(
-    "state",
-    state
-  );
+  url.searchParams.set("response_type", "code");
+  url.searchParams.set("client_id", COGNITO_CONFIG.clientId);
+  url.searchParams.set("redirect_uri", redirectUri);
+  url.searchParams.set("scope", COGNITO_CONFIG.scopes.join(" "));
+  url.searchParams.set("code_challenge_method", "S256");
+  url.searchParams.set("code_challenge", codeChallenge);
+  url.searchParams.set("state", state);
 
   return url.toString();
 }
 
 // ============================================================
-// 10. START COGNITO LOGIN
+// 8. START LOGIN
 // ============================================================
 
 async function loginWithCognito(
@@ -297,17 +259,13 @@ async function loginWithCognito(
 
     validateCognitoRedirectUri(redirectUri);
 
-    // Create a fresh PKCE verifier and challenge.
     const codeVerifier = generateCodeVerifier();
 
     const codeChallenge =
       await generateCodeChallenge(codeVerifier);
 
-    // Create a fresh OAuth state.
     const state = generateOAuthState();
 
-    // Save the original redirect URI with the
-    // PKCE verifier and state.
     storeAuthRequest(
       codeVerifier,
       state,
@@ -324,7 +282,6 @@ async function loginWithCognito(
     window.location.assign(authorizationUrl);
 
     return true;
-
   } catch (error) {
     clearAuthRequest();
 
@@ -333,16 +290,14 @@ async function loginWithCognito(
       error
     );
 
-    alert(
-      "Unable to start sign-in. Please try again."
-    );
+    alert("Unable to start sign-in. Please try again.");
 
     return false;
   }
 }
 
 // ============================================================
-// 11. START ADMIN DASHBOARD LOGIN
+// 9. ADMIN LOGIN
 // ============================================================
 
 function loginAdminWithCognito() {
@@ -352,7 +307,7 @@ function loginAdminWithCognito() {
 }
 
 // ============================================================
-// 12. DETECT COGNITO CALLBACK
+// 10. DETECT OAUTH CALLBACK
 // ============================================================
 
 function hasCognitoCallback() {
@@ -367,18 +322,14 @@ function hasCognitoCallback() {
 }
 
 function cleanCognitoCallbackUrl() {
-  const cleanUrl = new URL(
-    window.location.href
-  );
+  const cleanUrl = new URL(window.location.href);
 
-  const oauthParameters = [
+  for (const parameter of [
     "code",
     "state",
     "error",
     "error_description"
-  ];
-
-  for (const parameter of oauthParameters) {
+  ]) {
     cleanUrl.searchParams.delete(parameter);
   }
 
@@ -390,30 +341,27 @@ function cleanCognitoCallbackUrl() {
 }
 
 // ============================================================
-// 13. READ AND VALIDATE OAUTH CALLBACK
+// 11. VALIDATE LOGIN CALLBACK
 // ============================================================
 
 function readCognitoCallback() {
-  const params = new URLSearchParams(
-    window.location.search
-  );
-
   if (!hasCognitoCallback()) {
     return null;
   }
+
+  const params = new URLSearchParams(
+    window.location.search
+  );
 
   const returnedState = params.get("state");
   const authorizationCode = params.get("code");
   const oauthError = params.get("error");
 
-  // Remove OAuth response parameters from the URL.
   cleanCognitoCallbackUrl();
 
-  const savedRequest = sessionStorage.getItem(
-    AUTH_STORAGE_KEY
-  );
+  const savedRequest =
+    sessionStorage.getItem(AUTH_STORAGE_KEY);
 
-  // Consume the request once to prevent reuse.
   clearAuthRequest();
 
   if (!savedRequest) {
@@ -422,10 +370,10 @@ function readCognitoCallback() {
     );
   }
 
-  let authRequest;
+  let request;
 
   try {
-    authRequest = JSON.parse(savedRequest);
+    request = JSON.parse(savedRequest);
   } catch {
     throw new Error(
       "The saved authentication request is invalid."
@@ -433,53 +381,44 @@ function readCognitoCallback() {
   }
 
   if (
-    !authRequest ||
-    typeof authRequest !== "object" ||
-    Array.isArray(authRequest)
+    !request ||
+    typeof request !== "object" ||
+    Array.isArray(request)
   ) {
-    throw new Error(
-      "Invalid authentication request data."
-    );
+    throw new Error("Invalid authentication request data.");
   }
 
   const now = Date.now();
 
-  // Reject expired or future-dated requests.
   if (
-    typeof authRequest.createdAt !== "number" ||
-    !Number.isFinite(authRequest.createdAt) ||
-    authRequest.createdAt > now ||
-    now - authRequest.createdAt >
-      AUTH_REQUEST_MAX_AGE
+    typeof request.createdAt !== "number" ||
+    !Number.isFinite(request.createdAt) ||
+    request.createdAt > now ||
+    now - request.createdAt > AUTH_REQUEST_MAX_AGE
   ) {
     throw new Error(
       "The authentication request has expired."
     );
   }
 
-  // Validate the OAuth state.
   if (
-    typeof authRequest.state !== "string" ||
-    !OAUTH_STATE_PATTERN.test(authRequest.state) ||
+    typeof request.state !== "string" ||
+    !OAUTH_STATE_PATTERN.test(request.state) ||
     !returnedState ||
-    returnedState !== authRequest.state
+    returnedState !== request.state
   ) {
-    throw new Error(
-      "OAuth state validation failed."
-    );
+    throw new Error("OAuth state validation failed.");
   }
 
-  // Validate the original callback destination.
   const redirectUri =
-    authRequest.redirectUri === undefined
+    request.redirectUri === undefined
       ? COGNITO_CONFIG.redirectUri
-      : authRequest.redirectUri;
+      : request.redirectUri;
 
   validateCognitoRedirectUri(redirectUri);
 
   const currentCallbackUrl =
-    window.location.origin +
-    window.location.pathname;
+    window.location.origin + window.location.pathname;
 
   if (currentCallbackUrl !== redirectUri) {
     throw new Error(
@@ -497,31 +436,25 @@ function readCognitoCallback() {
     typeof authorizationCode !== "string" ||
     !authorizationCode
   ) {
-    throw new Error(
-      "Missing Cognito authorization code."
-    );
+    throw new Error("Missing Cognito authorization code.");
   }
 
   if (
-    typeof authRequest.codeVerifier !== "string" ||
-    !PKCE_VERIFIER_PATTERN.test(
-      authRequest.codeVerifier
-    )
+    typeof request.codeVerifier !== "string" ||
+    !PKCE_VERIFIER_PATTERN.test(request.codeVerifier)
   ) {
-    throw new Error(
-      "The saved PKCE verifier is invalid."
-    );
+    throw new Error("The saved PKCE verifier is invalid.");
   }
 
   return {
     authorizationCode,
-    codeVerifier: authRequest.codeVerifier,
+    codeVerifier: request.codeVerifier,
     redirectUri
   };
 }
 
 // ============================================================
-// 14. EXCHANGE AUTHORIZATION CODE FOR TOKENS
+// 12. EXCHANGE CODE FOR TOKENS
 // ============================================================
 
 async function exchangeCognitoCode(
@@ -533,18 +466,14 @@ async function exchangeCognitoCode(
     typeof authorizationCode !== "string" ||
     !authorizationCode
   ) {
-    throw new Error(
-      "Missing authorization code."
-    );
+    throw new Error("Missing authorization code.");
   }
 
   if (
     typeof codeVerifier !== "string" ||
     !PKCE_VERIFIER_PATTERN.test(codeVerifier)
   ) {
-    throw new Error(
-      "Invalid PKCE code verifier."
-    );
+    throw new Error("Invalid PKCE code verifier.");
   }
 
   validateCognitoRedirectUri(redirectUri);
@@ -554,7 +483,7 @@ async function exchangeCognitoCode(
     COGNITO_CONFIG.domain
   );
 
-  const requestBody = new URLSearchParams({
+  const body = new URLSearchParams({
     grant_type: "authorization_code",
     client_id: COGNITO_CONFIG.clientId,
     code: authorizationCode,
@@ -562,25 +491,19 @@ async function exchangeCognitoCode(
     code_verifier: codeVerifier
   });
 
-  const response = await fetch(
-    tokenUrl.toString(),
-    {
-      method: "POST",
-      mode: "cors",
-      credentials: "omit",
-      cache: "no-store",
-      headers: {
-        "Content-Type":
-          "application/x-www-form-urlencoded"
-      },
-      body: requestBody.toString()
-    }
-  );
+  const response = await fetch(tokenUrl.toString(), {
+    method: "POST",
+    mode: "cors",
+    credentials: "omit",
+    cache: "no-store",
+    headers: {
+      "Content-Type": "application/x-www-form-urlencoded"
+    },
+    body: body.toString()
+  });
 
   if (!response.ok) {
-    throw new Error(
-      "Cognito token exchange failed."
-    );
+    throw new Error("Cognito token exchange failed.");
   }
 
   const tokens = await response.json();
@@ -605,7 +528,7 @@ async function exchangeCognitoCode(
 }
 
 // ============================================================
-// 15. IN-MEMORY SESSION MANAGEMENT
+// 13. IN-MEMORY SESSION MANAGEMENT
 // ============================================================
 
 function setCognitoSession(tokens) {
@@ -616,9 +539,7 @@ function setCognitoSession(tokens) {
     !Number.isFinite(tokens.expires_in) ||
     tokens.expires_in <= 0
   ) {
-    throw new Error(
-      "Invalid Cognito session data."
-    );
+    throw new Error("Invalid Cognito session data.");
   }
 
   cognitoTokens = tokens;
@@ -640,11 +561,10 @@ function isCognitoAuthenticated() {
     return false;
   }
 
-  const tokenIsValidForUse =
-    Date.now() + TOKEN_EXPIRY_BUFFER <
-    cognitoTokenExpiresAt;
-
-  if (!tokenIsValidForUse) {
+  if (
+    Date.now() + TOKEN_EXPIRY_BUFFER >=
+    cognitoTokenExpiresAt
+  ) {
     clearCognitoSession();
     return false;
   }
@@ -661,25 +581,21 @@ function getCognitoAccessToken() {
 }
 
 // ============================================================
-// 16. AUTHENTICATION CHANGE EVENT
+// 14. AUTHENTICATION CHANGE NOTIFICATION
 // ============================================================
 
 function notifyCognitoAuthChanged() {
   window.dispatchEvent(
-    new CustomEvent(
-      "portfolio:auth-changed",
-      {
-        detail: {
-          authenticated:
-            isCognitoAuthenticated()
-        }
+    new CustomEvent("portfolio:auth-changed", {
+      detail: {
+        authenticated: isCognitoAuthenticated()
       }
-    )
+    })
   );
 }
 
 // ============================================================
-// 17. HANDLE COGNITO CALLBACK
+// 15. PROCESS COGNITO CALLBACK
 // ============================================================
 
 async function handleCognitoCallback() {
@@ -695,8 +611,6 @@ async function handleCognitoCallback() {
         return false;
       }
 
-      // Use the exact callback URL selected
-      // when the login request was created.
       const tokens = await exchangeCognitoCode(
         callback.authorizationCode,
         callback.codeVerifier,
@@ -712,7 +626,6 @@ async function handleCognitoCallback() {
       notifyCognitoAuthChanged();
 
       return true;
-
     } catch (error) {
       clearCognitoSession();
 
@@ -724,8 +637,7 @@ async function handleCognitoCallback() {
       notifyCognitoAuthChanged();
 
       alert(
-        "Sign-in could not be completed. " +
-        "Please try again."
+        "Sign-in could not be completed. Please try again."
       );
 
       return false;
@@ -736,15 +648,42 @@ async function handleCognitoCallback() {
 }
 
 // ============================================================
-// 18. SIGN OUT
+// 16. LOGOUT DESTINATION
+// ============================================================
+
+function getCognitoLogoutDestination() {
+  const currentPage =
+    window.location.origin + window.location.pathname;
+
+  // NEW:
+  // When logging out from admin.html, return to
+  // the admin login screen instead of the portfolio.
+  if (currentPage === COGNITO_CONFIG.adminRedirectUri) {
+    return COGNITO_CONFIG.adminLogoutUri;
+  }
+
+  // Preserve the original public-site behavior.
+  return COGNITO_CONFIG.logoutUri;
+}
+
+// ============================================================
+// 17. SIGN OUT
 // ============================================================
 
 function logoutWithCognito() {
+  const logoutDestination =
+    getCognitoLogoutDestination();
+
+  // Remove the local in-memory session.
   clearCognitoSession();
+
+  // Remove any unfinished login request.
   clearAuthRequest();
 
+  // Notify the dashboard to lock its controls.
   notifyCognitoAuthChanged();
 
+  // Sign out from the Cognito managed login session.
   const logoutUrl = new URL(
     "/logout",
     COGNITO_CONFIG.domain
@@ -757,16 +696,14 @@ function logoutWithCognito() {
 
   logoutUrl.searchParams.set(
     "logout_uri",
-    COGNITO_CONFIG.logoutUri
+    logoutDestination
   );
 
-  window.location.assign(
-    logoutUrl.toString()
-  );
+  window.location.assign(logoutUrl.toString());
 }
 
 // ============================================================
-// 19. INITIALIZE AUTHENTICATION
+// 18. INITIALIZE AUTHENTICATION
 // ============================================================
 
 async function initializeCognitoAuth() {
@@ -784,12 +721,9 @@ async function initializeCognitoAuth() {
   }
 
   const hasPendingRequest =
-    sessionStorage.getItem(
-      AUTH_STORAGE_KEY
-    ) !== null;
+    sessionStorage.getItem(AUTH_STORAGE_KEY) !== null;
 
   if (!hasPendingRequest) {
-    // Avoid processing unsolicited OAuth callbacks.
     cleanCognitoCallbackUrl();
 
     console.warn(
@@ -814,14 +748,8 @@ async function initializeCognitoAuth() {
 }
 
 // ============================================================
-// 20. AUTOMATIC INITIALIZATION
+// 19. AUTOMATIC INITIALIZATION
 // ============================================================
-
-// A shared promise lets other scripts wait for
-// callback processing to finish, including scripts
-// loaded after DOMContentLoaded.
-
-let cognitoInitializationPromise = null;
 
 function startCognitoInitialization() {
   if (!cognitoInitializationPromise) {
@@ -861,31 +789,28 @@ if (document.readyState === "loading") {
 }
 
 // ============================================================
-// 21. PUBLIC AUTHENTICATION API
+// 20. PUBLIC AUTHENTICATION API
 // ============================================================
 
-// Existing functions remain available to scripts
-// loaded with ordinary <script> tags.
-//
-// Public portfolio login:
+// Public login:
 //   loginWithCognito()
 //
-// Admin dashboard login:
+// Admin login:
 //   loginAdminWithCognito()
 //
-// Current session check:
+// Authentication state:
 //   isCognitoAuthenticated()
 //
-// Access token for protected API requests:
+// Protected API token:
 //   getCognitoAccessToken()
 //
 // Logout:
 //   logoutWithCognito()
 //
-// Wait for OAuth callback processing:
+// Wait for Cognito initialization:
 //   await waitForCognitoInitialization()
 //
 // IMPORTANT:
-// isCognitoAuthenticated() confirms only that an
-// unexpired Cognito access token exists in memory.
-// It does not prove that the user is an administrator.
+// A valid Cognito token does not automatically mean
+// the user is an administrator. The backend must
+// enforce administrator permissions.
