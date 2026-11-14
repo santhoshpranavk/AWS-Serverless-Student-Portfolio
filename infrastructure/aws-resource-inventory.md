@@ -203,7 +203,7 @@
 - User Pool ID: ap-south-1_CQ6N2FL3Z
 - Region: ap-south-1
 - Feature Plan: Essentials
-- Estimated Users at Inspection: 1
+- Estimated Users: 1
 - Deletion Protection: Enabled
 - Created Date: November 6, 2026
 
@@ -942,5 +942,372 @@ Public application endpoints, Cognito user pool identifiers, and public SPA clie
 | CloudFormation Resource Import | Not started |
 | Final Infrastructure Validation | Pending |
 | Minimum 10 AWS Services Requirement | In progress - 6 of 10 implemented |
+
+---
+
+
+---
+
+# Infrastructure Update - November 14, 2026
+
+## 1. AWS CloudFormation
+
+### Stack Information
+
+- Stack Name: student-portfolio-stack
+- Region: ap-south-1
+- Stack Status: IMPORT_COMPLETE
+- Termination Protection: Enabled
+- Import Date: November 13, 2026
+- Drift Detection Status: IN_SYNC
+- Total Imported Resources: 12
+- Resources Checked for Drift: 11
+- Resources In Sync: 11
+- Resources Not Checked: 1
+
+### Imported Resources
+
+| Resource Type | Count |
+|---|---:|
+| DynamoDB Tables | 3 |
+| Cognito User Pool | 1 |
+| Cognito App Client | 1 |
+| Cognito User Pool Group | 1 |
+| IAM Execution Role | 1 |
+| IAM Managed Policies | 2 |
+| CloudWatch Log Groups | 2 |
+| SES Email Identity | 1 |
+| Total | 12 |
+
+### Resource Protection
+
+- DeletionPolicy: Retain
+- UpdateReplacePolicy: Retain
+- Stack Termination Protection: Enabled
+
+The Cognito user pool was not included in the supported
+resource drift detection results.
+
+The existing application was tested successfully after
+the CloudFormation resource import.
+
+### Post-Import Application Testing
+
+- Public Homepage: Passed
+- Public Projects Section: Passed
+- Public Blog Section: Passed
+- Contact Form Submission: Passed
+- Contact Email Delivery: Passed
+- Administrator Sign-In: Passed
+- Administrator Dashboard Access: Passed
+- Blog Creation: Passed
+- Blog Update: Passed
+- Blog Deletion: Passed
+- Administrator Sign-Out: Passed
+- Unauthorized Dashboard Access Prevention: Passed
+
+These results represent the completed functional tests,
+not a comprehensive application security assessment.
+
+## 2. AWS Lambda Web Function
+
+### Function Configuration
+
+- Function Name: student-portfolio-api
+- Function Type: Lambda Web Function
+- Region: ap-south-1
+- Status: Active
+- Runtime: Node.js 24.x
+- Latest Verified Revision: rev-6boxt
+- Timeout: 30 seconds
+- Maximum Concurrency Per Environment: 64
+- Environment Variables: None configured
+- Customer-Managed KMS Key: Not configured
+- VPC Network Connector: Not configured
+- Deployment Artifact Storage: Amazon S3
+- CloudFormation Import Status: Not imported
+
+### Endpoint Configuration
+
+- Endpoint Name: student-portfolio-api-endpoint
+- Endpoint Type: HomeRegion
+- Primary Region: ap-south-1
+- Authentication Type: ApplicationManaged
+- Endpoint Status: Active
+- Automatic Deployment: LatestRevision
+- Revision Traffic Allocation: 100 percent
+- Replicated Regions: None
+
+### Logging Configuration
+
+- Application Log Level: INFO
+- System Log Level: INFO
+- Log Group: /aws/lambda/web/student-portfolio-api
+- Log Retention: 30 days
+
+### Backend Responsibilities
+
+- Public portfolio project retrieval
+- Published blog post retrieval
+- Contact form processing
+- Contact submission rate limiting
+- Email delivery through Amazon SES
+- Cognito access token verification
+- Administrator authorization
+- Project management operations
+- Blog management operations
+
+## 3. Amazon S3 - Backend Deployment Storage
+
+### Storage Configuration
+
+- Bucket Purpose: Lambda backend deployment artifacts
+- Bucket Type: General Purpose
+- Region: ap-south-1
+- Deployment Object Key: student-portfolio-api
+- Storage Class: Standard
+- Latest Verified Artifact Size: Approximately 3 MB
+- Bucket Versioning: Enabled
+- Default Encryption: SSE-S3
+- Block Public Access: Enabled
+- Object Ownership: Bucket Owner Enforced
+- ACLs: Disabled
+- Static Website Hosting: Disabled
+- Transfer Acceleration: Disabled
+- Object Lock: Disabled
+- Event Notifications: Not configured
+- Server Access Logging: Disabled
+- CloudFormation Import Status: Not imported
+
+### Bucket Access Policy
+
+The bucket policy:
+
+- Denies requests using insecure transport.
+- Allows the AWS Lambda service to retrieve deployment
+  objects and object versions.
+- Does not provide public website hosting.
+
+### Architecture Clarification
+
+Amazon S3 is used for backend deployment artifact storage.
+
+The public frontend is hosted using GitHub Pages.
+
+Amazon CloudFront is not configured as a portfolio
+frontend content delivery service.
+
+The existing deployment bucket is managed externally
+and is referenced by the infrastructure template.
+
+No additional S3 bucket is required for the current
+application architecture.
+
+## 4. Amazon Cognito - Managed Login
+
+### Domain Configuration
+
+- Domain Type: AWS-Managed Cognito Domain
+- Login Experience: Managed Login
+- Managed Login Version: 2
+- Custom Domain: Not configured
+- Custom ACM Certificate: Not configured
+- Issuer Type: Original
+- CloudFormation Import Status: Not imported
+
+### Branding Configuration
+
+- Assigned App Client: student-portfolio-admin-spa
+- Managed Login Branding Styles: 1
+- AWS Default Branding Values: Disabled
+- Color Scheme: Dark
+- Spacing Density: Condensed
+- Form Alignment: Center
+- Form Border Radius: 8
+- Page Header: Disabled
+- Page Footer: Disabled
+- Custom Branding Assets: None
+- CloudFormation Import Status: Not imported
+
+### Authentication Configuration
+
+- Authentication Flow: OAuth 2.0 Authorization Code
+- PKCE: Enabled by the application
+- Administrator Group: PortfolioAdmins
+- Public Self-Registration: Disabled
+- Multi-Factor Authentication: Disabled
+- User Pool Deletion Protection: Enabled
+
+## 5. Infrastructure as Code Reference
+
+### Template Information
+
+- File Name: student-portfolio-stack.yaml
+- Template Format: AWS CloudFormation YAML
+- Template Format Version: 2010-09-09
+- Total Resource Definitions: 17
+- Distinct Resource Types: 13
+- Template Parameters: 6
+- Existing Imported Resources: 12
+- Additional Reference Resource Definitions: 5
+
+### Resource Distribution
+
+| AWS Service | Resource Definitions |
+|---|---:|
+| Amazon DynamoDB | 3 |
+| Amazon Cognito | 5 |
+| AWS Lambda | 3 |
+| AWS IAM | 3 |
+| Amazon CloudWatch Logs | 2 |
+| Amazon SES | 1 |
+| Total | 17 |
+
+### Additional Reference Resources
+
+- AWS::Lambda::WebFunction
+- AWS::Lambda::WebFunctionRevision
+- AWS::Lambda::WebFunctionEndpoint
+- AWS::Cognito::UserPoolDomain
+- AWS::Cognito::ManagedLoginBranding
+
+### Template Validation Results
+
+| Validation Check | Result |
+|---|---|
+| CloudFormation ValidateTemplate | Passed |
+| CloudFormation GetTemplateSummary | Passed |
+| Resource Count Verification | Passed |
+| Resource Type Count Verification | Passed |
+| AWS Regional Resource Registry | Verified |
+| CloudFormation Linter | Conditional Pass |
+| Preliminary Sensitive Information Scan | Passed |
+
+### Linter Compatibility
+
+CloudFormation Linter Version: 1.53.3
+
+The installed linter reported E3006 for three newer
+Lambda Web Function resource types.
+
+All three resource types were independently verified
+in the AWS CloudFormation registry for ap-south-1.
+
+The linter reported no additional issues when E3006
+was temporarily excluded.
+
+Full property validation of these Lambda resource
+definitions remains incomplete.
+
+### Template Security
+
+- AWS account references use CloudFormation pseudo parameters.
+- AWS region references use CloudFormation pseudo parameters.
+- SES email identity is parameterized.
+- Cognito domain prefix is parameterized.
+- S3 deployment bucket is parameterized.
+- S3 deployment object version is parameterized.
+- Cognito user pool and app client references are dynamic.
+- No hardcoded AWS access keys are included.
+
+The preliminary sensitive information scan is not
+a comprehensive security audit.
+
+### Template Limitations
+
+This template is an infrastructure reference and is
+not intended for direct production deployment.
+
+The live CloudFormation stack manages 12 imported
+resources, not all 17 resource definitions.
+
+The additional five resource definitions have not
+been imported into the live stack.
+
+The template uses sanitized resource names and
+simplified configuration properties.
+
+The complete exported Cognito branding configuration
+is not reproduced in the reference template.
+
+Explicit Lambda revision routing is represented
+instead of automatic LatestRevision deployment.
+
+The existing S3 deployment bucket and its bucket
+policy are managed externally.
+
+Existing DynamoDB records, Cognito users, administrator
+group memberships and GitHub Pages configuration
+are not recreated by this template.
+
+A fresh deployment would require application
+configuration changes, deployment artifacts,
+email verification and administrator provisioning.
+
+No live infrastructure changes were performed
+during reference template validation.
+
+## 6. AWS Service Utilization
+
+| No. | AWS Service | Project Purpose |
+|---:|---|---|
+| 1 | AWS Lambda | Serverless backend API |
+| 2 | Amazon DynamoDB | Application data storage |
+| 3 | Amazon Cognito | Authentication and authorization |
+| 4 | Amazon SES | Contact form email delivery |
+| 5 | AWS IAM | Roles and permissions |
+| 6 | Amazon CloudWatch | Application logging and monitoring |
+| 7 | AWS CloudFormation | Infrastructure management |
+| 8 | Amazon S3 | Backend deployment artifact storage |
+
+### Service Requirement Progress
+
+- Target AWS Services: 10
+- Verified AWS Services: 8
+- Remaining AWS Services: 2
+- Completion: 80 percent
+
+Amazon S3 is counted because it provides verified
+backend deployment artifact storage.
+
+GitHub Pages is used for frontend hosting but is
+not counted as an AWS service.
+
+Additional AWS services will be selected based on
+application requirements, security, monitoring
+and cost efficiency.
+
+## 7. Current Project Architecture
+
+```mermaid
+flowchart TD
+    U[Public Visitors] --> G[GitHub Pages Frontend]
+    A[Administrator] --> G
+    G --> C[Amazon Cognito]
+    G --> L[AWS Lambda Web Function]
+    C -. Access Token .-> G
+    L --> D[Amazon DynamoDB]
+    L --> E[Amazon SES]
+    L --> W[Amazon CloudWatch Logs]
+    I[AWS IAM] -. Permissions .-> L
+    S[Amazon S3] -. Deployment Artifact .-> L
+    F[AWS CloudFormation] -. Partial Infrastructure Management .-> D
+    F -. Partial Infrastructure Management .-> C
+    F -. Infrastructure Management .-> I
+    F -. Infrastructure Management .-> W
+    F -. Infrastructure Management .-> E
+```
+
+## 8. Current Infrastructure Status
+
+- Public Website: Operational at last test
+- Backend API: Operational at last test
+- Administrator Dashboard: Operational at last test
+- Database Operations: Operational at last test
+- Contact Email Delivery: Operational at last test
+- CloudFormation Stack: IMPORT_COMPLETE
+- Supported Resource Drift Status: IN_SYNC
+- Infrastructure Reference Template: Documented
+- AWS Service Requirement: In Progress
 
 ---

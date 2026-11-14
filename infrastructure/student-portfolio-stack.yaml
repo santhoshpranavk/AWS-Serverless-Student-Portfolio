@@ -1,0 +1,921 @@
+
+AWSTemplateFormatVersion: "2010-09-09"
+
+Description: >
+  AWS Serverless Student Portfolio infrastructure reference.
+  Includes DynamoDB, Cognito, IAM, CloudWatch Logs, SES,
+  Lambda Web Functions and an existing S3 deployment artifact.
+  Reference only. Not intended for direct production deployment.
+
+# ============================================================
+# PARAMETERS
+# ============================================================
+
+Parameters:
+
+  PortfolioWebsiteURL:
+    Type: String
+    Default: "https://santhoshpranavk.github.io/AWS-Serverless-Student-Portfolio/"
+    Description: Portfolio website URL including trailing slash.
+
+  PortfolioEmailIdentity:
+    Type: String
+    NoEcho: true
+    Description: Verified Amazon SES email identity.
+
+  PortfolioCognitoDomainPrefix:
+    Type: String
+    Description: Unique Cognito managed login domain prefix.
+
+  LambdaArtifactBucket:
+    Type: String
+    Description: Existing private S3 deployment artifact bucket.
+
+  LambdaArtifactKey:
+    Type: String
+    Default: student-portfolio-api
+    Description: Lambda deployment artifact object key.
+
+  LambdaArtifactVersion:
+    Type: String
+    Description: Exact S3 object version used by the deployed revision.
+
+# ============================================================
+# METADATA
+# ============================================================
+
+Metadata:
+
+  ProjectInformation:
+    ProjectName: AWS Serverless Student Portfolio
+    FrontendHosting: GitHub Pages
+    PrimaryRegion: ap-south-1
+    BackendType: Lambda Web Function
+    InfrastructurePurpose: Reference documentation only
+    ExistingImportedResources: 12
+    AdditionalResourceDefinitions: 5
+    ExistingS3BucketManagedExternally: true
+
+# ============================================================
+# RESOURCES
+# ============================================================
+
+Resources:
+
+  # ==========================================================
+  # 01. AMAZON DYNAMODB - PROJECTS TABLE
+  # ==========================================================
+
+  DynamoDBTableStudentportfolioprojects:
+    Type: AWS::DynamoDB::Table
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+
+    Properties:
+      TableName: student-portfolio-projects
+
+      BillingMode: PAY_PER_REQUEST
+
+      AttributeDefinitions:
+        - AttributeName: projectId
+          AttributeType: S
+
+      KeySchema:
+        - AttributeName: projectId
+          KeyType: HASH
+
+      TableClass: STANDARD
+
+      DeletionProtectionEnabled: true
+
+      SSESpecification:
+        SSEEnabled: false
+
+      PointInTimeRecoverySpecification:
+        PointInTimeRecoveryEnabled: false
+
+      ContributorInsightsSpecification:
+        Enabled: false
+
+  # ==========================================================
+  # 02. AMAZON DYNAMODB - BLOG POSTS TABLE
+  # ==========================================================
+
+  DynamoDBTableStudentportfolioblogposts:
+    Type: AWS::DynamoDB::Table
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+
+    Properties:
+      TableName: student-portfolio-blog-posts
+
+      BillingMode: PAY_PER_REQUEST
+
+      AttributeDefinitions:
+        - AttributeName: postId
+          AttributeType: S
+
+      KeySchema:
+        - AttributeName: postId
+          KeyType: HASH
+
+      TableClass: STANDARD
+
+      DeletionProtectionEnabled: true
+
+      SSESpecification:
+        SSEEnabled: false
+
+      PointInTimeRecoverySpecification:
+        PointInTimeRecoveryEnabled: false
+
+      ContributorInsightsSpecification:
+        Enabled: false
+
+  # ==========================================================
+  # 03. AMAZON DYNAMODB - CONTACT RATE LIMIT TABLE
+  # ==========================================================
+
+  DynamoDBTableStudentportfoliocontactratelimit:
+    Type: AWS::DynamoDB::Table
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+
+    Properties:
+      TableName: student-portfolio-contact-ratelimit
+
+      BillingMode: PAY_PER_REQUEST
+
+      AttributeDefinitions:
+        - AttributeName: rateLimitKey
+          AttributeType: S
+
+      KeySchema:
+        - AttributeName: rateLimitKey
+          KeyType: HASH
+
+      TableClass: STANDARD
+
+      DeletionProtectionEnabled: false
+
+      SSESpecification:
+        SSEEnabled: false
+
+      PointInTimeRecoverySpecification:
+        PointInTimeRecoveryEnabled: false
+
+      ContributorInsightsSpecification:
+        Enabled: false
+
+      TimeToLiveSpecification:
+        Enabled: true
+        AttributeName: expiresAt
+
+  # ==========================================================
+  # 04. AMAZON COGNITO - USER POOL
+  # ==========================================================
+
+  CognitoUserPool:
+    Type: AWS::Cognito::UserPool
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+
+    Properties:
+      UserPoolName: student-portfolio-user-pool
+
+      UserPoolTier: ESSENTIALS
+
+      DeletionProtection: ACTIVE
+
+      UsernameAttributes:
+        - email
+
+      AutoVerifiedAttributes:
+        - email
+
+      UsernameConfiguration:
+        CaseSensitive: false
+
+      Policies:
+        PasswordPolicy:
+          MinimumLength: 8
+          RequireUppercase: true
+          RequireLowercase: true
+          RequireNumbers: true
+          RequireSymbols: true
+          TemporaryPasswordValidityDays: 7
+
+        SignInPolicy:
+          AllowedFirstAuthFactors:
+            - PASSWORD
+
+      MfaConfiguration: "OFF"
+
+      AdminCreateUserConfig:
+        AllowAdminCreateUserOnly: true
+
+      Schema:
+        - Name: email
+          AttributeDataType: String
+          Required: true
+          Mutable: true
+
+      VerificationMessageTemplate:
+        DefaultEmailOption: CONFIRM_WITH_CODE
+
+      EmailConfiguration:
+        EmailSendingAccount: COGNITO_DEFAULT
+
+      IssuerConfiguration:
+        Type: ORIGINAL
+
+      KeyConfiguration:
+        KeyType: AWS_OWNED_KEY
+
+      AccountRecoverySetting:
+        RecoveryMechanisms:
+          - Name: verified_email
+            Priority: 1
+
+          - Name: verified_phone_number
+            Priority: 2
+
+  # ==========================================================
+  # 05. AMAZON COGNITO - ADMIN GROUP
+  # ==========================================================
+
+  CognitoUserPoolGroupPortfolioAdmins:
+    Type: AWS::Cognito::UserPoolGroup
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+
+    Properties:
+      GroupName: PortfolioAdmins
+
+      Description: >
+        Authorized administrators for the
+        AWS Serverless Student Portfolio.
+
+      UserPoolId: !Ref CognitoUserPool
+
+  # ==========================================================
+  # 06. AMAZON COGNITO - APPLICATION CLIENT
+  # ==========================================================
+
+  CognitoUserPoolClient:
+    Type: AWS::Cognito::UserPoolClient
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+
+    Properties:
+      ClientName: student-portfolio-admin-spa
+
+      UserPoolId: !Ref CognitoUserPool
+
+      GenerateSecret: false
+
+      AllowedOAuthFlowsUserPoolClient: true
+
+      AllowedOAuthFlows:
+        - code
+
+      AllowedOAuthScopes:
+        - email
+        - openid
+
+      SupportedIdentityProviders:
+        - COGNITO
+
+      CallbackURLs:
+        - !Ref PortfolioWebsiteURL
+        - !Sub "${PortfolioWebsiteURL}admin.html"
+
+      LogoutURLs:
+        - !Ref PortfolioWebsiteURL
+        - !Sub "${PortfolioWebsiteURL}admin.html"
+
+      DefaultRedirectURI: !Ref PortfolioWebsiteURL
+
+      ExplicitAuthFlows:
+        - ALLOW_REFRESH_TOKEN_AUTH
+        - ALLOW_USER_AUTH
+        - ALLOW_USER_SRP_AUTH
+
+      AccessTokenValidity: 60
+
+      IdTokenValidity: 60
+
+      RefreshTokenValidity: 5
+
+      AuthSessionValidity: 3
+
+      TokenValidityUnits:
+        AccessToken: minutes
+        IdToken: minutes
+        RefreshToken: days
+
+      PreventUserExistenceErrors: ENABLED
+
+      EnableTokenRevocation: true
+
+      EnablePropagateAdditionalUserContextData: false
+
+  # ==========================================================
+  # 07. AMAZON COGNITO - MANAGED LOGIN DOMAIN
+  # Additional reference resource, not currently imported.
+  # ==========================================================
+
+  CognitoUserPoolDomain:
+    Type: AWS::Cognito::UserPoolDomain
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+
+    Properties:
+      UserPoolId: !Ref CognitoUserPool
+
+      Domain: !Ref PortfolioCognitoDomainPrefix
+
+      ManagedLoginVersion: 2
+
+  # ==========================================================
+  # 08. AMAZON COGNITO - MANAGED LOGIN BRANDING
+  # Additional reference resource, not currently imported.
+  # Core visual settings only.
+  # ==========================================================
+
+  CognitoManagedLoginBranding:
+    Type: AWS::Cognito::ManagedLoginBranding
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+
+    DependsOn:
+      - CognitoUserPoolDomain
+
+    Properties:
+      UserPoolId: !Ref CognitoUserPool
+
+      ClientId: !Ref CognitoUserPoolClient
+
+      UseCognitoProvidedValues: false
+
+      Settings:
+        categories:
+          global:
+            colorSchemeMode: DARK
+            spacingDensity: CONDENSED
+
+            pageHeader:
+              enabled: false
+
+            pageFooter:
+              enabled: false
+
+          form:
+            sessionTimerDisplay: NONE
+
+            instructions:
+              enabled: false
+
+            languageSelector:
+              enabled: false
+
+            displayGraphics: true
+
+            location:
+              horizontal: CENTER
+              vertical: CENTER
+
+          auth:
+            federation:
+              interfaceStyle: BUTTON_LIST
+              order: []
+
+            authMethodOrder:
+              - - display: BUTTON
+                  type: FEDERATED
+
+                - display: INPUT
+                  type: USERNAME_PASSWORD
+
+          signUp:
+            acceptanceElements:
+              - enforcement: NONE
+                textKey: en
+
+        components:
+          form:
+            borderRadius: 8
+
+            lightMode:
+              backgroundColor: "ffffffff"
+              borderColor: "c6c6cdff"
+
+            darkMode:
+              backgroundColor: "0f1b2aff"
+              borderColor: "424650ff"
+
+            backgroundImage:
+              enabled: false
+
+            logo:
+              location: CENTER
+              position: TOP
+              enabled: false
+              formInclusion: IN
+
+          pageBackground:
+            image:
+              enabled: true
+
+            lightMode:
+              color: "ffffffff"
+
+            darkMode:
+              color: "0f1b2aff"
+
+          pageText:
+            lightMode:
+              bodyColor: "414d5cff"
+              headingColor: "000716ff"
+              descriptionColor: "414d5cff"
+
+            darkMode:
+              bodyColor: "b6bec9ff"
+              headingColor: "d1d5dbff"
+              descriptionColor: "b6bec9ff"
+
+          primaryButton:
+            lightMode:
+              defaults:
+                backgroundColor: "0972d3ff"
+                textColor: "ffffffff"
+
+              hover:
+                backgroundColor: "033160ff"
+                textColor: "ffffffff"
+
+              active:
+                backgroundColor: "033160ff"
+                textColor: "ffffffff"
+
+              disabled:
+                backgroundColor: "ffffffff"
+                borderColor: "ffffffff"
+
+            darkMode:
+              defaults:
+                backgroundColor: "539fe5ff"
+                textColor: "000716ff"
+
+              hover:
+                backgroundColor: "89bdeeff"
+                textColor: "000716ff"
+
+              active:
+                backgroundColor: "539fe5ff"
+                textColor: "000716ff"
+
+              disabled:
+                backgroundColor: "ffffffff"
+                borderColor: "ffffffff"
+
+        componentClasses:
+          buttons:
+            borderRadius: 8
+
+          input:
+            borderRadius: 8
+
+            lightMode:
+              defaults:
+                backgroundColor: "ffffffff"
+                borderColor: "7d8998ff"
+
+              placeholderColor: "5f6b7aff"
+
+            darkMode:
+              defaults:
+                backgroundColor: "0f1b2aff"
+                borderColor: "5f6b7aff"
+
+              placeholderColor: "8d99a8ff"
+
+          inputLabel:
+            lightMode:
+              textColor: "000716ff"
+
+            darkMode:
+              textColor: "d1d5dbff"
+
+          link:
+            lightMode:
+              defaults:
+                textColor: "0972d3ff"
+
+              hover:
+                textColor: "033160ff"
+
+            darkMode:
+              defaults:
+                textColor: "539fe5ff"
+
+              hover:
+                textColor: "89bdeeff"
+
+  # ==========================================================
+  # 09. AMAZON CLOUDWATCH - MAIN LOG GROUP
+  # ==========================================================
+
+  LogsLogGroupawslambdawebstudentportfolioapi:
+    Type: AWS::Logs::LogGroup
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+
+    Properties:
+      LogGroupName: /aws/lambda/web/student-portfolio-api
+
+      RetentionInDays: 30
+
+      LogGroupClass: STANDARD
+
+      DeletionProtectionEnabled: false
+
+  # ==========================================================
+  # 10. AMAZON CLOUDWATCH - LOCAL LOG GROUP
+  # ==========================================================
+
+  LogsLogGroupawslambdawebstudentportfolioapilocal:
+    Type: AWS::Logs::LogGroup
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+
+    Properties:
+      LogGroupName: /aws/lambda/web/student-portfolio-api.local
+
+      RetentionInDays: 30
+
+      LogGroupClass: STANDARD
+
+      DeletionProtectionEnabled: false
+
+  # ==========================================================
+  # 11. AMAZON SES - EMAIL IDENTITY
+  # ==========================================================
+
+  SESEmailIdentity:
+    Type: AWS::SES::EmailIdentity
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+
+    Properties:
+      EmailIdentity: !Ref PortfolioEmailIdentity
+
+      FeedbackAttributes:
+        EmailForwardingEnabled: true
+
+  # ==========================================================
+  # 12. AWS IAM - LAMBDA EXECUTION ROLE
+  # ==========================================================
+
+  IAMRoleStudentportfolioapi:
+    Type: AWS::IAM::Role
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+
+    Properties:
+      RoleName: student-portfolio-api-role
+
+      Path: /service-role/
+
+      MaxSessionDuration: 3600
+
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+
+        Statement:
+          - Effect: Allow
+
+            Principal:
+              Service: lambda.amazonaws.com
+
+            Action:
+              - sts:AssumeRole
+
+      ManagedPolicyArns:
+        - !Sub "arn:${AWS::Partition}:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+
+      Policies:
+
+        # Contact rate limit permissions
+
+        - PolicyName: StudentPortfolioContactRateLimitPolicy
+
+          PolicyDocument:
+            Version: "2012-10-17"
+
+            Statement:
+              - Sid: ContactRateLimitTableAccess
+
+                Effect: Allow
+
+                Action:
+                  - dynamodb:GetItem
+                  - dynamodb:UpdateItem
+
+                Resource: !GetAtt DynamoDBTableStudentportfoliocontactratelimit.Arn
+
+        # Public projects and blog read permissions
+
+        - PolicyName: StudentPortfolioDynamoDBReadOnly
+
+          PolicyDocument:
+            Version: "2012-10-17"
+
+            Statement:
+              - Sid: ReadPortfolioProjects
+
+                Effect: Allow
+
+                Action:
+                  - dynamodb:GetItem
+                  - dynamodb:Query
+                  - dynamodb:Scan
+
+                Resource: !GetAtt DynamoDBTableStudentportfolioprojects.Arn
+
+              - Sid: ReadPortfolioBlogPosts
+
+                Effect: Allow
+
+                Action:
+                  - dynamodb:Scan
+
+                Resource: !GetAtt DynamoDBTableStudentportfolioblogposts.Arn
+
+        # Amazon SES contact email permissions
+
+        - PolicyName: StudentPortfolioSESSendEmailPolicy
+
+          PolicyDocument:
+            Version: "2012-10-17"
+
+            Statement:
+              - Sid: AllowPortfolioSESEmailSending
+
+                Effect: Allow
+
+                Action:
+                  - ses:SendEmail
+
+                Resource: !Sub "arn:${AWS::Partition}:ses:${AWS::Region}:${AWS::AccountId}:identity/${PortfolioEmailIdentity}"
+
+  # ==========================================================
+  # 13. AWS IAM - LAMBDA LOGGING MANAGED POLICY
+  # ==========================================================
+
+  IAMManagedPolicyLambdaLogging:
+    Type: AWS::IAM::ManagedPolicy
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+
+    Properties:
+      ManagedPolicyName: StudentPortfolioLambdaLogging
+
+      Path: /service-role/
+
+      Description: >
+        Allows the portfolio backend to create CloudWatch
+        log groups and write application logs.
+
+      Roles:
+        - !Ref IAMRoleStudentportfolioapi
+
+      PolicyDocument:
+        Version: "2012-10-17"
+
+        Statement:
+          - Sid: CreateLogGroups
+
+            Effect: Allow
+
+            Action:
+              - logs:CreateLogGroup
+
+            Resource: !Sub "arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:*"
+
+          - Sid: WritePortfolioLogs
+
+            Effect: Allow
+
+            Action:
+              - logs:CreateLogStream
+              - logs:PutLogEvents
+
+            Resource:
+              - !Sub "arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/web/student-portfolio-api:*"
+
+  # ==========================================================
+  # 14. AWS IAM - ADMIN DYNAMODB WRITE POLICY
+  # ==========================================================
+
+  IAMManagedPolicyPolicyStudentPortfolioDynamoDBAdminWrite:
+    Type: AWS::IAM::ManagedPolicy
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+
+    Properties:
+      ManagedPolicyName: StudentPortfolioDynamoDBAdminWrite
+
+      Path: /
+
+      Description: >
+        Allows the portfolio Lambda backend to create,
+        update and delete projects and blog posts.
+        Administrator authorization is enforced by the
+        application using Cognito access tokens.
+
+      Roles:
+        - !Ref IAMRoleStudentportfolioapi
+
+      PolicyDocument:
+        Version: "2012-10-17"
+
+        Statement:
+          - Sid: AllowPortfolioAdminWrites
+
+            Effect: Allow
+
+            Action:
+              - dynamodb:PutItem
+              - dynamodb:UpdateItem
+              - dynamodb:DeleteItem
+
+            Resource:
+              - !GetAtt DynamoDBTableStudentportfolioprojects.Arn
+              - !GetAtt DynamoDBTableStudentportfolioblogposts.Arn
+
+  # ==========================================================
+  # 15. AWS LAMBDA - WEB FUNCTION
+  # Additional reference resource, not currently imported.
+  # ==========================================================
+
+  LambdaWebFunction:
+    Type: AWS::Lambda::WebFunction
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+
+    Properties:
+      FunctionName: student-portfolio-api
+
+  # ==========================================================
+  # 16. AWS LAMBDA - WEB FUNCTION REVISION
+  # Additional reference resource, not currently imported.
+  # ==========================================================
+
+  LambdaWebFunctionRevision:
+    Type: AWS::Lambda::WebFunctionRevision
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+
+    DependsOn:
+      - IAMManagedPolicyLambdaLogging
+      - IAMManagedPolicyPolicyStudentPortfolioDynamoDBAdminWrite
+      - SESEmailIdentity
+      - CognitoUserPoolClient
+      - CognitoUserPoolGroupPortfolioAdmins
+
+    Properties:
+      FunctionName: !GetAtt LambdaWebFunction.FunctionArn
+
+      Description: Student Portfolio backend reference revision.
+
+      BuildConfig:
+
+        CodeConfig:
+          S3Object:
+            Bucket: !Ref LambdaArtifactBucket
+            Key: !Ref LambdaArtifactKey
+            VersionId: !Ref LambdaArtifactVersion
+
+        RuntimeConfig:
+          Runtime: nodejs24.x
+
+      ServiceConfig:
+        ExecutionRoleArn: !GetAtt IAMRoleStudentportfolioapi.Arn
+
+        TimeoutSeconds: 30
+
+        MaxConcurrencyPerEnvironment: 64
+
+        TelemetryConfig:
+          LoggingConfig:
+            LogGroup: !Ref LogsLogGroupawslambdawebstudentportfolioapi
+
+            ApplicationLogLevel: INFO
+
+            SystemLogLevel: INFO
+
+  # ==========================================================
+  # 17. AWS LAMBDA - WEB FUNCTION ENDPOINT
+  # Additional reference resource, not currently imported.
+  #
+  # Automatic deployment to LatestRevision is not exposed
+  # by the verified CloudFormation endpoint schema.
+  # Explicit revision routing is represented instead.
+  # ==========================================================
+
+  LambdaWebFunctionEndpoint:
+    Type: AWS::Lambda::WebFunctionEndpoint
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+
+    Properties:
+      FunctionName: !GetAtt LambdaWebFunction.FunctionArn
+
+      EndpointName: student-portfolio-api-endpoint
+
+      EndpointType: HomeRegion
+
+      AuthType: ApplicationManaged
+
+      RevisionWeights:
+        - RevisionId: !GetAtt LambdaWebFunctionRevision.RevisionId
+          Weight: 100
+
+# ============================================================
+# OUTPUTS
+# ============================================================
+
+Outputs:
+
+  PortfolioWebsite:
+    Description: Public portfolio website.
+    Value: !Ref PortfolioWebsiteURL
+
+  PortfolioAdminDashboard:
+    Description: Portfolio administrator dashboard.
+    Value: !Sub "${PortfolioWebsiteURL}admin.html"
+
+  ProjectsTableName:
+    Description: DynamoDB projects table.
+    Value: !Ref DynamoDBTableStudentportfolioprojects
+
+  BlogTableName:
+    Description: DynamoDB blog posts table.
+    Value: !Ref DynamoDBTableStudentportfolioblogposts
+
+  ContactRateLimitTableName:
+    Description: DynamoDB contact rate limit table.
+    Value: !Ref DynamoDBTableStudentportfoliocontactratelimit
+
+  CognitoUserPoolId:
+    Description: Cognito user pool identifier.
+    Value: !Ref CognitoUserPool
+
+  CognitoAppClientId:
+    Description: Cognito application client identifier.
+    Value: !Ref CognitoUserPoolClient
+
+  CognitoAdminGroup:
+    Description: Cognito administrator group.
+    Value: !Ref CognitoUserPoolGroupPortfolioAdmins
+
+  CognitoManagedLoginURL:
+    Description: Cognito managed login base URL.
+    Value: !Sub "https://${PortfolioCognitoDomainPrefix}.auth.${AWS::Region}.amazoncognito.com"
+
+  CognitoBrandingId:
+    Description: Managed login branding identifier.
+    Value: !GetAtt CognitoManagedLoginBranding.ManagedLoginBrandingId
+
+  LambdaExecutionRoleArn:
+    Description: Lambda execution role ARN.
+    Value: !GetAtt IAMRoleStudentportfolioapi.Arn
+
+  LambdaWebFunctionArn:
+    Description: Lambda Web Function ARN.
+    Value: !GetAtt LambdaWebFunction.FunctionArn
+
+  LambdaRevisionId:
+    Description: Lambda backend revision identifier.
+    Value: !GetAtt LambdaWebFunctionRevision.RevisionId
+
+  LambdaEndpointURL:
+    Description: Public HTTPS backend endpoint.
+    Value: !Sub "https://${LambdaWebFunctionEndpoint.DomainName}/"
+
+  LambdaDeploymentArtifactBucket:
+    Description: Existing S3 deployment artifact bucket.
+    Value: !Ref LambdaArtifactBucket
+
+  MainLambdaLogGroup:
+    Description: Main Lambda CloudWatch log group.
+    Value: !Ref LogsLogGroupawslambdawebstudentportfolioapi
+
+  LocalLambdaLogGroup:
+    Description: Local Lambda CloudWatch log group.
+    Value: !Ref LogsLogGroupawslambdawebstudentportfolioapilocal
+
+  DeploymentRegion:
+    Description: AWS deployment region.
+    Value: !Ref AWS::Region
