@@ -1460,8 +1460,8 @@ Verified results:
 | Property | Recorded Value |
 | --- | --- |
 | Logging Start | November 15, 2026, 06:02:48 UTC |
-| Verified Digest Delivery | November 15, 2026, 06:13:32 UTC |
-| Verified Log Delivery | November 15, 2026, 06:35:45 UTC |
+| Verified Digest Delivery | November 15, 2026, 07:13:27 UTC |
+| Verified Log Delivery | November 15, 2026, 07:27:58 UTC |
 | Delivery Status | Successful at last check |
 
 ### Log Integrity Validation
@@ -1471,23 +1471,36 @@ CloudTrail log file validation is enabled.
 The AWS CLI validate-logs command was executed
 against the newly created trail in ap-south-1.
 
-Initial validation results:
+Initial validation successfully verified one digest file.
+At that time, no actual audit log files were available
+for integrity validation.
+
+Subsequent validation results:
 
 | Verification | Result |
 | --- | --- |
-| Digest Files Checked | 1 |
-| Valid Digest Files | 1 |
+| Validation Date | November 15, 2026 |
+| Validation Region | ap-south-1 |
+| Validated Start Time | 06:02:48 UTC |
+| Validated End Time | 07:02:48 UTC |
+| Digest Files Checked | 2 |
+| Valid Digest Files | 2 |
 | Invalid Digest Files | 0 |
+| Audit Log Files Checked | 11 |
+| Valid Audit Log Files | 11 |
+| Invalid Audit Log Files | 0 |
 | Initial Digest Validation | Passed |
-| Actual Audit Log Files Validated | 0 |
-| Subsequent Audit Log Validation | Pending |
+| Subsequent Audit Log Validation | Passed |
 
-The initial digest passed cryptographic validation.
+All two digest files and eleven audit log files
+passed CloudTrail cryptographic integrity validation.
 
-This result does not establish that subsequent audit
-log files have passed integrity validation.
+CloudTrail logging and S3 delivery were also
+verified as operational, with no reported delivery errors.
 
-Additional digest and log-file validation remains pending.
+This verification covers the available digest period
+in ap-south-1 only. It does not establish integrity
+for other regions or subsequent audit log files.
 
 ### Auditing Workflow
 
@@ -1530,7 +1543,7 @@ Standard S3 storage and request charges may still apply.
 - Review retention requirements before changing the lifecycle rule.
 - Do not enable additional paid event categories unnecessarily.
 - Do not expose raw audit records publicly.
-- Validate subsequent audit logs when digest files are available.
+- Periodically validate new audit logs when digest files are available.
 
 AWS CloudTrail is the tenth distinct AWS service
 verified during project implementation.
@@ -2365,7 +2378,7 @@ successful deployment or resource import.
 | S3 Log Delivery | Verified |
 | Digest Delivery | Verified |
 | Initial Digest Validation | Passed |
-| Subsequent Audit Log Validation | Pending |
+| Subsequent Audit Log Validation | Passed - 11/11 log files valid |
 
 ---
 
@@ -2450,7 +2463,7 @@ independently repeated during the post-import test.
 | Multi-Region Log Delivery | Passed |
 | Digest File Delivery | Passed |
 | Initial Digest Integrity Validation | Passed |
-| Subsequent Audit Log Integrity Validation | Pending |
+| Subsequent Audit Log Integrity Validation | Passed - 2/2 digests and 11/11 logs valid |
 
 ### Testing Limitations
 
@@ -2486,7 +2499,7 @@ They do not constitute:
 | Amazon CloudWatch | Actual HTTP 5XX detection test | Not performed |
 | Amazon CloudWatch | Monitoring dashboard | Optional |
 | Amazon SNS | Additional security configuration review | Pending |
-| AWS CloudTrail | Subsequent audit log integrity validation | Pending |
+| AWS CloudTrail | Subsequent audit log integrity validation | Completed - Mumbai validation passed |
 | AWS CloudFormation | Monitoring and auditing template expansion | Completed |
 | AWS CloudFormation | Updated reference template validation | Passed |
 | AWS CloudFormation | Full Lambda Web Function lint validation | Pending |
@@ -2734,7 +2747,7 @@ access without valid authentication and authorization.
 - CloudWatch log group deletion protection is disabled.
 - Audit bucket versioning is not enabled.
 - Audit logs are subject to permanent lifecycle expiration.
-- Subsequent CloudTrail audit log integrity validation is pending.
+- CloudTrail integrity validation passed for 2 digest files and 11 audit log files in ap-south-1. Other regions and future logs are outside the verified scope.
 - The application has not undergone a comprehensive penetration test.
 - The infrastructure reference template is not fully deployment-tested.
 
@@ -2834,7 +2847,7 @@ control reviews or disaster recovery planning.
 - Review remaining CloudFormation lint compatibility limitations.
 - Preserve the validated 23-resource reference template.
 - Review the updated template for sensitive information.
-- Validate subsequent CloudTrail audit log files.
+- Periodically validate new CloudTrail audit log files as part of ongoing maintenance.
 - Review AWS account IAM MFA configuration.
 - Verify GitHub Pages deployment branch and source.
 - Review final project security settings.
@@ -2900,7 +2913,7 @@ for application impact, security and cost.
 | Audit Bucket Encryption | Verified |
 | Audit Log Retention | Enabled - 90 days |
 | Initial Digest Validation | Passed |
-| Subsequent Audit Log Validation | Pending |
+| Subsequent Audit Log Validation | Passed - 11/11 log files valid |
 | CloudFormation Resource Import | Completed - 12 resources |
 | CloudFormation Stack Status | IMPORT_COMPLETE at last check |
 | Supported Resource Drift Status | IN_SYNC at last check |
@@ -2979,6 +2992,8 @@ for application impact, security and cost.
 - Verified CloudTrail digest delivery.
 - Configured 90-day audit log retention.
 - Completed initial digest integrity validation.
+- Completed subsequent CloudTrail integrity validation: 2/2 digest files and 11/11 audit log files valid.
+- Verified continued CloudTrail logging and successful S3 delivery without reported delivery errors.
 - Achieved the minimum 10 AWS service requirement.
 - Consolidated infrastructure inventory documentation.
 - Backed up the existing 17-resource reference template.
