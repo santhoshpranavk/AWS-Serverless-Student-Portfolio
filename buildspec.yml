@@ -1,0 +1,58 @@
+
+version: 0.2
+
+phases:
+  install:
+    runtime-versions:
+      nodejs: 24
+    commands:
+      - echo "Installing build environment..."
+      - node --version
+      - npm --version
+      - aws --version
+
+  pre_build:
+    commands:
+      - echo "Checking required project files..."
+      - |
+        for file in index.html style.css script.js admin.html admin.css admin.js auth.js favicon.svg README.md infrastructure/aws-resource-inventory.md infrastructure/student-portfolio-stack.yaml; do
+          if [ ! -s "$file" ]; then
+            echo "ERROR: Missing or empty file - $file"
+            exit 1
+          fi
+          echo "PASS: $file"
+        done
+
+  build:
+    commands:
+      - echo "Validating JavaScript syntax..."
+      - node --check script.js
+      - node --check admin.js
+      - node --check auth.js
+
+      - echo "Validating CloudFormation reference template..."
+      - |
+        aws cloudformation validate-template \
+          --template-body file://infrastructure/student-portfolio-stack.yaml \
+          --region ap-south-1 \
+          --no-cli-pager
+
+      - echo "Preparing frontend build artifacts..."
+      - mkdir -p dist
+      - cp index.html style.css script.js admin.html admin.css admin.js auth.js favicon.svg dist/
+
+  post_build:
+    commands:
+      - |
+        if [ "$CODEBUILD_BUILD_SUCCEEDING" -ne 1 ]; then
+          echo "ERROR: Build validation failed."
+          exit 1
+        fi
+      - echo "All configured validation checks passed."
+      - echo "Frontend build artifacts are ready."
+
+artifacts:
+  files:
+    - '**/*'
+  base-directory: dist
+  discard-paths: no
