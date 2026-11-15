@@ -3,8 +3,8 @@ AWSTemplateFormatVersion: "2010-09-09"
 
 Description: >
   AWS Serverless Student Portfolio infrastructure reference.
-  Includes DynamoDB, Cognito, IAM, CloudWatch Logs, SES,
-  Lambda Web Functions and an existing S3 deployment artifact.
+  Includes DynamoDB, Cognito, IAM, CloudWatch, SES,
+  Lambda Web Functions, S3, SNS and CloudTrail.
   Reference only. Not intended for direct production deployment.
 
 # ============================================================
@@ -40,6 +40,11 @@ Parameters:
     Type: String
     Description: Exact S3 object version used by the deployed revision.
 
+  PortfolioAlertEmail:
+    Type: String
+    NoEcho: true
+    Description: Email address for SNS monitoring notifications.
+
 # ============================================================
 # METADATA
 # ============================================================
@@ -53,8 +58,14 @@ Metadata:
     BackendType: Lambda Web Function
     InfrastructurePurpose: Reference documentation only
     ExistingImportedResources: 12
-    AdditionalResourceDefinitions: 5
+    AdditionalResourceDefinitions: 11
+    TotalResourceDefinitions: 23
+    ImplementedAWSServices: 10
     ExistingS3BucketManagedExternally: true
+    AuditBucketManagedOutsideLiveStack: true
+    MonitoringResourcesManagedOutsideLiveStack: true
+    CloudTrailManagedOutsideLiveStack: true
+    AuditLogRetentionDays: 90
 
 # ============================================================
 # RESOURCES
@@ -820,7 +831,7 @@ Resources:
   # Additional reference resource, not currently imported.
   #
   # Automatic deployment to LatestRevision is not exposed
-  # by the verified CloudFormation endpoint schema.
+  # by the previously verified CloudFormation endpoint schema.
   # Explicit revision routing is represented instead.
   # ==========================================================
 
@@ -841,6 +852,274 @@ Resources:
       RevisionWeights:
         - RevisionId: !GetAtt LambdaWebFunctionRevision.RevisionId
           Weight: 100
+
+  # ==========================================================
+  # 18. AMAZON SNS - MONITORING NOTIFICATION TOPIC
+  # Additional reference resource, not currently imported.
+  # ==========================================================
+
+  SNSStudentPortfolioAlerts:
+    Type: AWS::SNS::Topic
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+
+    Properties:
+      TopicName: StudentPortfolioAlerts
+
+      DisplayName: StudentPortfolioAlerts
+
+      FifoTopic: false
+
+  # ==========================================================
+  # 19. AMAZON SNS - EMAIL SUBSCRIPTION
+  # Additional reference resource, not currently imported.
+  #
+  # A new deployment would require email confirmation.
+  # Existing subscription confirmation is not recreated
+  # automatically by this reference template.
+  # ==========================================================
+
+  SNSStudentPortfolioEmailSubscription:
+    Type: AWS::SNS::Subscription
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+
+    Properties:
+      TopicArn: !Ref SNSStudentPortfolioAlerts
+
+      Protocol: email
+
+      Endpoint: !Ref PortfolioAlertEmail
+
+  # ==========================================================
+  # 20. AMAZON CLOUDWATCH - API ERROR ALARM
+  # Additional reference resource, not currently imported.
+  #
+  # Monitors HTTP 5XX errors from the Lambda Web Function.
+  # Notification integration has been manually tested.
+  # Actual HTTP 5XX detection has not been independently tested.
+  # ==========================================================
+
+  CloudWatchStudentPortfolioAPI5XXAlarm:
+    Type: AWS::CloudWatch::Alarm
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+
+    DependsOn:
+      - LambdaWebFunctionEndpoint
+
+    Properties:
+      AlarmName: StudentPortfolio-API-5XX-Errors
+
+      AlarmDescription: >
+        Monitors HTTP 5XX server errors for the
+        student-portfolio-api Lambda Web Function.
+        Triggers an Amazon SNS email notification when
+        at least one server error occurs within a
+        five-minute period. Missing data is treated
+        as not breaching the threshold.
+
+      ActionsEnabled: true
+
+      AlarmActions:
+        - !Ref SNSStudentPortfolioAlerts
+
+      Namespace: AWS/Lambda/Web
+
+      MetricName: HTTPResponseStatusClass5XX
+
+      Dimensions:
+        - Name: FunctionName
+          Value: student-portfolio-api
+
+        - Name: EndpointName
+          Value: student-portfolio-api-endpoint
+
+      Statistic: Sum
+
+      Period: 300
+
+      EvaluationPeriods: 1
+
+      DatapointsToAlarm: 1
+
+      Threshold: 1
+
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+
+      TreatMissingData: notBreaching
+
+      Tags:
+        - Key: Project
+          Value: StudentPortfolio
+
+  # ==========================================================
+  # 21. AMAZON S3 - CLOUDTRAIL AUDIT LOG BUCKET
+  # Additional reference resource, not currently imported.
+  #
+  # CloudFormation-generated bucket name is used instead
+  # of exposing the existing account-specific bucket name.
+  #
+  # This is not the Lambda deployment artifact bucket.
+  # ==========================================================
+
+  S3StudentPortfolioAuditBucket:
+    Type: AWS::S3::Bucket
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+
+    Properties:
+
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+
+            BucketKeyEnabled: false
+
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        IgnorePublicAcls: true
+        BlockPublicPolicy: true
+        RestrictPublicBuckets: true
+
+      OwnershipControls:
+        Rules:
+          - ObjectOwnership: BucketOwnerEnforced
+
+      # Versioning is intentionally omitted because
+      # versioning is not enabled on the existing audit bucket.
+
+      LifecycleConfiguration:
+        Rules:
+          - Id: StudentPortfolio-AuditLog-Retention
+
+            Status: Enabled
+
+            Prefix: AWSLogs/
+
+            ExpirationInDays: 90
+
+      # No static website hosting is configured.
+      # No storage class transitions are configured.
+      # No customer-managed KMS key is configured.
+
+  # ==========================================================
+  # 22. AMAZON S3 - CLOUDTRAIL AUDIT BUCKET POLICY
+  # Additional reference resource, not currently imported.
+  #
+  # Restricts CloudTrail access to the dedicated trail
+  # and the correct AWS account log prefix.
+  #
+  # The trail ARN is constructed using pseudo parameters
+  # to avoid a circular dependency between the trail
+  # and the S3 bucket policy.
+  # ==========================================================
+
+  S3StudentPortfolioAuditBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+
+    Properties:
+      Bucket: !Ref S3StudentPortfolioAuditBucket
+
+      PolicyDocument:
+        Version: "2012-10-17"
+
+        Statement:
+
+          - Sid: AWSCloudTrailAclCheck
+
+            Effect: Allow
+
+            Principal:
+              Service: cloudtrail.amazonaws.com
+
+            Action:
+              - s3:GetBucketAcl
+
+            Resource: !GetAtt S3StudentPortfolioAuditBucket.Arn
+
+            Condition:
+              StringEquals:
+                "AWS:SourceArn": !Sub "arn:${AWS::Partition}:cloudtrail:${AWS::Region}:${AWS::AccountId}:trail/student-portfolio-audit-trail"
+
+          - Sid: AWSCloudTrailWrite
+
+            Effect: Allow
+
+            Principal:
+              Service: cloudtrail.amazonaws.com
+
+            Action:
+              - s3:PutObject
+
+            Resource: !Sub "${S3StudentPortfolioAuditBucket.Arn}/AWSLogs/${AWS::AccountId}/*"
+
+            Condition:
+              StringEquals:
+                "s3:x-amz-acl": bucket-owner-full-control
+
+                "AWS:SourceArn": !Sub "arn:${AWS::Partition}:cloudtrail:${AWS::Region}:${AWS::AccountId}:trail/student-portfolio-audit-trail"
+
+  # ==========================================================
+  # 23. AWS CLOUDTRAIL - INFRASTRUCTURE AUDIT TRAIL
+  # Additional reference resource, not currently imported.
+  #
+  # Records account-wide management events.
+  # Data events, Insights events and network activity
+  # events are not configured.
+  #
+  # CloudWatch Logs integration and SNS delivery
+  # notifications are intentionally omitted.
+  #
+  # Recursive logging was enabled in the existing console
+  # configuration. Its CloudFormation property support
+  # requires separate schema verification.
+  # ==========================================================
+
+  CloudTrailStudentPortfolioAuditTrail:
+    Type: AWS::CloudTrail::Trail
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+
+    DependsOn:
+      - S3StudentPortfolioAuditBucketPolicy
+
+    Properties:
+      TrailName: student-portfolio-audit-trail
+
+      S3BucketName: !Ref S3StudentPortfolioAuditBucket
+
+      IsLogging: true
+
+      IsMultiRegionTrail: true
+
+      IncludeGlobalServiceEvents: true
+
+      EnableLogFileValidation: true
+
+      IsOrganizationTrail: false
+
+      EventSelectors:
+        - ReadWriteType: All
+
+          IncludeManagementEvents: true
+
+      Tags:
+        - Key: Project
+          Value: StudentPortfolio
+
+      # SSE-KMS is intentionally not configured.
+      # The S3 audit bucket uses SSE-S3 encryption.
+      #
+      # KMS management events are not excluded.
+      # RDS Data API management events are not excluded.
+      #
+      # No data event selectors are configured.
+      # No Insights event selectors are configured.
+      # No network activity event selectors are configured.
 
 # ============================================================
 # OUTPUTS
@@ -916,6 +1195,127 @@ Outputs:
     Description: Local Lambda CloudWatch log group.
     Value: !Ref LogsLogGroupawslambdawebstudentportfolioapilocal
 
+  MonitoringSNSTopicArn:
+    Description: Portfolio monitoring SNS notification topic ARN.
+    Value: !Ref SNSStudentPortfolioAlerts
+
+  MonitoringAlarmName:
+    Description: Portfolio API HTTP 5XX error alarm name.
+    Value: !Ref CloudWatchStudentPortfolioAPI5XXAlarm
+
+  MonitoringAlarmArn:
+    Description: Portfolio API HTTP 5XX error alarm ARN.
+    Value: !GetAtt CloudWatchStudentPortfolioAPI5XXAlarm.Arn
+
+  CloudTrailAuditBucketName:
+    Description: CloudTrail audit log storage bucket.
+    Value: !Ref S3StudentPortfolioAuditBucket
+
+  CloudTrailAuditBucketArn:
+    Description: CloudTrail audit log storage bucket ARN.
+    Value: !GetAtt S3StudentPortfolioAuditBucket.Arn
+
+  CloudTrailAuditTrailArn:
+    Description: Portfolio infrastructure audit trail ARN.
+    Value: !GetAtt CloudTrailStudentPortfolioAuditTrail.Arn
+
+  CloudTrailAuditRetentionDays:
+    Description: Audit log lifecycle expiration period in days.
+    Value: "90"
+
   DeploymentRegion:
     Description: AWS deployment region.
     Value: !Ref AWS::Region
+
+# ============================================================
+# INFRASTRUCTURE REFERENCE SUMMARY
+# ============================================================
+#
+# Project:
+#   AWS Serverless Student Portfolio
+#
+# AWS services implemented:
+#   10
+#
+# Existing live CloudFormation imported resources:
+#   12
+#
+# Additional reference resource definitions:
+#   11
+#
+# Total resource definitions:
+#   23
+#
+# Resource distribution:
+#   DynamoDB Tables:                  3
+#   Cognito Resources:                5
+#   IAM Resources:                    3
+#   CloudWatch Resources:             3
+#   SES Email Identity:               1
+#   Lambda Web Function Resources:    3
+#   SNS Resources:                    2
+#   S3 Resources:                     2
+#   CloudTrail Resources:             1
+#   -----------------------------------
+#   Total:                           23
+#
+# Existing external dependencies:
+#   GitHub repository
+#   GitHub Pages frontend
+#   Lambda S3 deployment artifact bucket
+#   Lambda S3 deployment artifact object
+#   Lambda S3 deployment artifact version
+#   Existing Cognito administrator accounts
+#   Existing administrator group memberships
+#   Existing application data
+#   Verified SES email identity
+#
+# Monitoring:
+#   CloudWatch Logs retention: 30 days
+#   CloudWatch HTTP 5XX alarm: Configured
+#   SNS email notification: Configured
+#
+# Auditing:
+#   CloudTrail multi-region management events
+#   CloudTrail log file validation
+#   Private S3 audit log storage
+#   SSE-S3 encryption
+#   90-day lifecycle expiration
+#
+# IMPORTANT:
+#
+# This template is an infrastructure reference.
+#
+# It is not intended for direct deployment over the
+# existing production CloudFormation stack.
+#
+# The existing live stack manages only 12 resources.
+#
+# The additional 11 resource definitions have not
+# been imported into the live stack.
+#
+# Existing production resource names and configurations
+# must be preserved during any future import operation.
+#
+# The audit bucket uses a generated name in this reference.
+#
+# The existing Lambda deployment bucket is external.
+#
+# Existing Cognito administrator accounts and application
+# data are not recreated by this template.
+#
+# The existing SNS subscription confirmation is not
+# recreated automatically by a new deployment.
+#
+# The CloudTrail trail records account-wide events.
+#
+# The audit lifecycle rule permanently expires eligible
+# logs and digest files after 90 days.
+#
+# Successful template validation does not establish
+# complete deployment compatibility.
+#
+# No production stack update or additional resource
+# import should be performed without separate review.
+#
+# ============================================================
