@@ -4,7 +4,8 @@ AWSTemplateFormatVersion: "2010-09-09"
 Description: >
   AWS Serverless Student Portfolio infrastructure reference.
   Includes DynamoDB, Cognito, IAM, CloudWatch, SES,
-  Lambda Web Functions, S3, SNS and CloudTrail.
+  Lambda Web Functions, S3, SNS, CloudTrail, CodeBuild
+  and CodePipeline.
   Reference only. Not intended for direct production deployment.
 
 # ============================================================
@@ -15,8 +16,13 @@ Parameters:
 
   PortfolioWebsiteURL:
     Type: String
+    Default: "https://pranavk.co.in/"
+    Description: Primary portfolio URL including trailing slash.
+
+  PortfolioLegacyWebsiteURL:
+    Type: String
     Default: "https://santhoshpranavk.github.io/AWS-Serverless-Student-Portfolio/"
-    Description: Portfolio website URL including trailing slash.
+    Description: Previous GitHub Pages URL including trailing slash.
 
   PortfolioEmailIdentity:
     Type: String
@@ -45,6 +51,32 @@ Parameters:
     NoEcho: true
     Description: Email address for SNS monitoring notifications.
 
+  PipelineArtifactBucket:
+    Type: String
+    Description: Existing private CodePipeline S3 artifact bucket.
+
+  PipelineServiceRoleArn:
+    Type: String
+    Description: Existing CodePipeline IAM service role ARN.
+
+  CodeBuildServiceRoleArn:
+    Type: String
+    Description: Existing CodeBuild IAM service role ARN.
+
+  GitHubConnectionArn:
+    Type: String
+    Description: Existing authorized AWS CodeConnections GitHub connection ARN.
+
+  GitHubRepositoryId:
+    Type: String
+    Default: santhoshpranavk/AWS-Serverless-Student-Portfolio
+    Description: GitHub repository owner and repository name.
+
+  GitHubBranch:
+    Type: String
+    Default: main
+    Description: GitHub branch used by the CI pipeline.
+
 # ============================================================
 # METADATA
 # ============================================================
@@ -55,17 +87,61 @@ Metadata:
     ProjectName: AWS Serverless Student Portfolio
     FrontendHosting: GitHub Pages
     PrimaryRegion: ap-south-1
+    PrimaryWebsite: "https://pranavk.co.in/"
     BackendType: Lambda Web Function
     InfrastructurePurpose: Reference documentation only
     ExistingImportedResources: 12
-    AdditionalResourceDefinitions: 11
-    TotalResourceDefinitions: 23
-    ImplementedAWSServices: 10
+    AdditionalResourceDefinitions: 15
+    TotalResourceDefinitions: 27
+    ImplementedAWSServices: 12
     ExistingS3BucketManagedExternally: true
     AuditBucketManagedOutsideLiveStack: true
     MonitoringResourcesManagedOutsideLiveStack: true
     CloudTrailManagedOutsideLiveStack: true
+    CIResourcesManagedOutsideLiveStack: true
     AuditLogRetentionDays: 90
+
+  ImplementedServices:
+    - AWS Lambda Web Functions
+    - Amazon DynamoDB
+    - Amazon Cognito
+    - Amazon SES
+    - Amazon S3
+    - AWS IAM
+    - Amazon CloudWatch
+    - Amazon SNS
+    - AWS CloudTrail
+    - AWS CloudFormation
+    - AWS CodeBuild
+    - AWS CodePipeline
+
+  SupportingIntegrations:
+    - AWS CodeConnections
+    - GitHub
+    - GitHub Pages
+    - AWS managed encryption keys
+
+  BackendDeployment:
+    FunctionName: student-portfolio-api
+    EndpointName: student-portfolio-api-endpoint
+    Runtime: nodejs24.x
+    DeploymentMode: LatestRevision
+    Authentication: ApplicationManaged
+    CustomDomainCORS: "https://pranavk.co.in"
+    EnvironmentVariablesConfigured: false
+    NetworkConnectorConfigured: false
+
+  ContinuousIntegration:
+    PipelineName: student-portfolio-pipeline
+    PipelineType: V2
+    ExecutionMode: SUPERSEDED
+    SourceProvider: CodeStarSourceConnection
+    BuildProject: student-portfolio-build
+    NodeJSVersion: 24
+    Trigger: Push to main
+    DeploymentStageConfigured: false
+    FrontendDeployment: GitHub Pages
+    BackendDeployment: Lambda Web Function revisions
 
 # ============================================================
 # RESOURCES
@@ -74,139 +150,104 @@ Metadata:
 Resources:
 
   # ==========================================================
-  # 01. AMAZON DYNAMODB - PROJECTS TABLE
+  # 01. DYNAMODB - PROJECTS TABLE
   # ==========================================================
 
   DynamoDBTableStudentportfolioprojects:
     Type: AWS::DynamoDB::Table
     DeletionPolicy: Retain
     UpdateReplacePolicy: Retain
-
     Properties:
       TableName: student-portfolio-projects
-
       BillingMode: PAY_PER_REQUEST
-
       AttributeDefinitions:
         - AttributeName: projectId
           AttributeType: S
-
       KeySchema:
         - AttributeName: projectId
           KeyType: HASH
-
       TableClass: STANDARD
-
       DeletionProtectionEnabled: true
-
       SSESpecification:
         SSEEnabled: false
-
       PointInTimeRecoverySpecification:
         PointInTimeRecoveryEnabled: false
-
       ContributorInsightsSpecification:
         Enabled: false
 
   # ==========================================================
-  # 02. AMAZON DYNAMODB - BLOG POSTS TABLE
+  # 02. DYNAMODB - BLOG POSTS TABLE
   # ==========================================================
 
   DynamoDBTableStudentportfolioblogposts:
     Type: AWS::DynamoDB::Table
     DeletionPolicy: Retain
     UpdateReplacePolicy: Retain
-
     Properties:
       TableName: student-portfolio-blog-posts
-
       BillingMode: PAY_PER_REQUEST
-
       AttributeDefinitions:
         - AttributeName: postId
           AttributeType: S
-
       KeySchema:
         - AttributeName: postId
           KeyType: HASH
-
       TableClass: STANDARD
-
       DeletionProtectionEnabled: true
-
       SSESpecification:
         SSEEnabled: false
-
       PointInTimeRecoverySpecification:
         PointInTimeRecoveryEnabled: false
-
       ContributorInsightsSpecification:
         Enabled: false
 
   # ==========================================================
-  # 03. AMAZON DYNAMODB - CONTACT RATE LIMIT TABLE
+  # 03. DYNAMODB - CONTACT RATE LIMIT TABLE
   # ==========================================================
 
   DynamoDBTableStudentportfoliocontactratelimit:
     Type: AWS::DynamoDB::Table
     DeletionPolicy: Retain
     UpdateReplacePolicy: Retain
-
     Properties:
       TableName: student-portfolio-contact-ratelimit
-
       BillingMode: PAY_PER_REQUEST
-
       AttributeDefinitions:
         - AttributeName: rateLimitKey
           AttributeType: S
-
       KeySchema:
         - AttributeName: rateLimitKey
           KeyType: HASH
-
       TableClass: STANDARD
-
       DeletionProtectionEnabled: false
-
       SSESpecification:
         SSEEnabled: false
-
       PointInTimeRecoverySpecification:
         PointInTimeRecoveryEnabled: false
-
       ContributorInsightsSpecification:
         Enabled: false
-
       TimeToLiveSpecification:
         Enabled: true
         AttributeName: expiresAt
 
   # ==========================================================
-  # 04. AMAZON COGNITO - USER POOL
+  # 04. COGNITO - USER POOL
   # ==========================================================
 
   CognitoUserPool:
     Type: AWS::Cognito::UserPool
     DeletionPolicy: Retain
     UpdateReplacePolicy: Retain
-
     Properties:
       UserPoolName: student-portfolio-user-pool
-
       UserPoolTier: ESSENTIALS
-
       DeletionProtection: ACTIVE
-
       UsernameAttributes:
         - email
-
       AutoVerifiedAttributes:
         - email
-
       UsernameConfiguration:
         CaseSensitive: false
-
       Policies:
         PasswordPolicy:
           MinimumLength: 8
@@ -215,95 +256,79 @@ Resources:
           RequireNumbers: true
           RequireSymbols: true
           TemporaryPasswordValidityDays: 7
-
         SignInPolicy:
           AllowedFirstAuthFactors:
             - PASSWORD
-
       MfaConfiguration: "OFF"
-
       AdminCreateUserConfig:
         AllowAdminCreateUserOnly: true
-
       Schema:
         - Name: email
           AttributeDataType: String
           Required: true
           Mutable: true
-
       VerificationMessageTemplate:
         DefaultEmailOption: CONFIRM_WITH_CODE
-
       EmailConfiguration:
         EmailSendingAccount: COGNITO_DEFAULT
-
       IssuerConfiguration:
         Type: ORIGINAL
-
       KeyConfiguration:
         KeyType: AWS_OWNED_KEY
-
       AccountRecoverySetting:
         RecoveryMechanisms:
           - Name: verified_email
             Priority: 1
-
           - Name: verified_phone_number
             Priority: 2
 
   # ==========================================================
-  # 05. AMAZON COGNITO - ADMIN GROUP
+  # 05. COGNITO - ADMIN GROUP
   # ==========================================================
 
   CognitoUserPoolGroupPortfolioAdmins:
     Type: AWS::Cognito::UserPoolGroup
     DeletionPolicy: Retain
     UpdateReplacePolicy: Retain
-
     Properties:
       GroupName: PortfolioAdmins
-
       Description: >
         Authorized administrators for the
         AWS Serverless Student Portfolio.
-
       UserPoolId: !Ref CognitoUserPool
 
   # ==========================================================
-  # 06. AMAZON COGNITO - APPLICATION CLIENT
+  # 06. COGNITO - APPLICATION CLIENT
   # ==========================================================
 
   CognitoUserPoolClient:
     Type: AWS::Cognito::UserPoolClient
     DeletionPolicy: Retain
     UpdateReplacePolicy: Retain
-
     Properties:
       ClientName: student-portfolio-admin-spa
-
       UserPoolId: !Ref CognitoUserPool
-
       GenerateSecret: false
-
       AllowedOAuthFlowsUserPoolClient: true
-
       AllowedOAuthFlows:
         - code
-
       AllowedOAuthScopes:
         - email
         - openid
-
       SupportedIdentityProviders:
         - COGNITO
 
       CallbackURLs:
         - !Ref PortfolioWebsiteURL
         - !Sub "${PortfolioWebsiteURL}admin.html"
+        - !Ref PortfolioLegacyWebsiteURL
+        - !Sub "${PortfolioLegacyWebsiteURL}admin.html"
 
       LogoutURLs:
         - !Ref PortfolioWebsiteURL
         - !Sub "${PortfolioWebsiteURL}admin.html"
+        - !Ref PortfolioLegacyWebsiteURL
+        - !Sub "${PortfolioLegacyWebsiteURL}admin.html"
 
       DefaultRedirectURI: !Ref PortfolioWebsiteURL
 
@@ -311,62 +336,46 @@ Resources:
         - ALLOW_REFRESH_TOKEN_AUTH
         - ALLOW_USER_AUTH
         - ALLOW_USER_SRP_AUTH
-
       AccessTokenValidity: 60
-
       IdTokenValidity: 60
-
       RefreshTokenValidity: 5
-
       AuthSessionValidity: 3
-
       TokenValidityUnits:
         AccessToken: minutes
         IdToken: minutes
         RefreshToken: days
-
       PreventUserExistenceErrors: ENABLED
-
       EnableTokenRevocation: true
-
       EnablePropagateAdditionalUserContextData: false
 
   # ==========================================================
-  # 07. AMAZON COGNITO - MANAGED LOGIN DOMAIN
-  # Additional reference resource, not currently imported.
+  # 07. COGNITO - MANAGED LOGIN DOMAIN
+  # Reference resource, not currently imported.
   # ==========================================================
 
   CognitoUserPoolDomain:
     Type: AWS::Cognito::UserPoolDomain
     DeletionPolicy: Retain
     UpdateReplacePolicy: Retain
-
     Properties:
       UserPoolId: !Ref CognitoUserPool
-
       Domain: !Ref PortfolioCognitoDomainPrefix
-
       ManagedLoginVersion: 2
 
   # ==========================================================
-  # 08. AMAZON COGNITO - MANAGED LOGIN BRANDING
-  # Additional reference resource, not currently imported.
-  # Core visual settings only.
+  # 08. COGNITO - MANAGED LOGIN BRANDING
+  # Reference resource, not currently imported.
   # ==========================================================
 
   CognitoManagedLoginBranding:
     Type: AWS::Cognito::ManagedLoginBranding
     DeletionPolicy: Retain
     UpdateReplacePolicy: Retain
-
     DependsOn:
       - CognitoUserPoolDomain
-
     Properties:
       UserPoolId: !Ref CognitoUserPool
-
       ClientId: !Ref CognitoUserPoolClient
-
       UseCognitoProvidedValues: false
 
       Settings:
@@ -374,24 +383,18 @@ Resources:
           global:
             colorSchemeMode: DARK
             spacingDensity: CONDENSED
-
             pageHeader:
               enabled: false
-
             pageFooter:
               enabled: false
 
           form:
             sessionTimerDisplay: NONE
-
             instructions:
               enabled: false
-
             languageSelector:
               enabled: false
-
             displayGraphics: true
-
             location:
               horizontal: CENTER
               vertical: CENTER
@@ -400,11 +403,9 @@ Resources:
             federation:
               interfaceStyle: BUTTON_LIST
               order: []
-
             authMethodOrder:
               - - display: BUTTON
                   type: FEDERATED
-
                 - display: INPUT
                   type: USERNAME_PASSWORD
 
@@ -416,18 +417,14 @@ Resources:
         components:
           form:
             borderRadius: 8
-
             lightMode:
               backgroundColor: "ffffffff"
               borderColor: "c6c6cdff"
-
             darkMode:
               backgroundColor: "0f1b2aff"
               borderColor: "424650ff"
-
             backgroundImage:
               enabled: false
-
             logo:
               location: CENTER
               position: TOP
@@ -437,10 +434,8 @@ Resources:
           pageBackground:
             image:
               enabled: true
-
             lightMode:
               color: "ffffffff"
-
             darkMode:
               color: "0f1b2aff"
 
@@ -449,7 +444,6 @@ Resources:
               bodyColor: "414d5cff"
               headingColor: "000716ff"
               descriptionColor: "414d5cff"
-
             darkMode:
               bodyColor: "b6bec9ff"
               headingColor: "d1d5dbff"
@@ -460,15 +454,12 @@ Resources:
               defaults:
                 backgroundColor: "0972d3ff"
                 textColor: "ffffffff"
-
               hover:
                 backgroundColor: "033160ff"
                 textColor: "ffffffff"
-
               active:
                 backgroundColor: "033160ff"
                 textColor: "ffffffff"
-
               disabled:
                 backgroundColor: "ffffffff"
                 borderColor: "ffffffff"
@@ -477,15 +468,12 @@ Resources:
               defaults:
                 backgroundColor: "539fe5ff"
                 textColor: "000716ff"
-
               hover:
                 backgroundColor: "89bdeeff"
                 textColor: "000716ff"
-
               active:
                 backgroundColor: "539fe5ff"
                 textColor: "000716ff"
-
               disabled:
                 backgroundColor: "ffffffff"
                 borderColor: "ffffffff"
@@ -496,25 +484,20 @@ Resources:
 
           input:
             borderRadius: 8
-
             lightMode:
               defaults:
                 backgroundColor: "ffffffff"
                 borderColor: "7d8998ff"
-
               placeholderColor: "5f6b7aff"
-
             darkMode:
               defaults:
                 backgroundColor: "0f1b2aff"
                 borderColor: "5f6b7aff"
-
               placeholderColor: "8d99a8ff"
 
           inputLabel:
             lightMode:
               textColor: "000716ff"
-
             darkMode:
               textColor: "d1d5dbff"
 
@@ -522,93 +505,74 @@ Resources:
             lightMode:
               defaults:
                 textColor: "0972d3ff"
-
               hover:
                 textColor: "033160ff"
-
             darkMode:
               defaults:
                 textColor: "539fe5ff"
-
               hover:
                 textColor: "89bdeeff"
 
   # ==========================================================
-  # 09. AMAZON CLOUDWATCH - MAIN LOG GROUP
+  # 09. CLOUDWATCH - MAIN LOG GROUP
   # ==========================================================
 
   LogsLogGroupawslambdawebstudentportfolioapi:
     Type: AWS::Logs::LogGroup
     DeletionPolicy: Retain
     UpdateReplacePolicy: Retain
-
     Properties:
       LogGroupName: /aws/lambda/web/student-portfolio-api
-
       RetentionInDays: 30
-
       LogGroupClass: STANDARD
-
       DeletionProtectionEnabled: false
 
   # ==========================================================
-  # 10. AMAZON CLOUDWATCH - LOCAL LOG GROUP
+  # 10. CLOUDWATCH - LOCAL LOG GROUP
   # ==========================================================
 
   LogsLogGroupawslambdawebstudentportfolioapilocal:
     Type: AWS::Logs::LogGroup
     DeletionPolicy: Retain
     UpdateReplacePolicy: Retain
-
     Properties:
       LogGroupName: /aws/lambda/web/student-portfolio-api.local
-
       RetentionInDays: 30
-
       LogGroupClass: STANDARD
-
       DeletionProtectionEnabled: false
 
   # ==========================================================
-  # 11. AMAZON SES - EMAIL IDENTITY
+  # 11. SES - EMAIL IDENTITY
   # ==========================================================
 
   SESEmailIdentity:
     Type: AWS::SES::EmailIdentity
     DeletionPolicy: Retain
     UpdateReplacePolicy: Retain
-
     Properties:
       EmailIdentity: !Ref PortfolioEmailIdentity
-
       FeedbackAttributes:
         EmailForwardingEnabled: true
 
   # ==========================================================
-  # 12. AWS IAM - LAMBDA EXECUTION ROLE
+  # 12. IAM - LAMBDA EXECUTION ROLE
   # ==========================================================
 
   IAMRoleStudentportfolioapi:
     Type: AWS::IAM::Role
     DeletionPolicy: Retain
     UpdateReplacePolicy: Retain
-
     Properties:
       RoleName: student-portfolio-api-role
-
       Path: /service-role/
-
       MaxSessionDuration: 3600
 
       AssumeRolePolicyDocument:
         Version: "2012-10-17"
-
         Statement:
           - Effect: Allow
-
             Principal:
               Service: lambda.amazonaws.com
-
             Action:
               - sts:AssumeRole
 
@@ -617,170 +581,130 @@ Resources:
 
       Policies:
 
-        # Contact rate limit permissions
-
         - PolicyName: StudentPortfolioContactRateLimitPolicy
-
           PolicyDocument:
             Version: "2012-10-17"
-
             Statement:
               - Sid: ContactRateLimitTableAccess
-
                 Effect: Allow
-
                 Action:
                   - dynamodb:GetItem
                   - dynamodb:UpdateItem
-
                 Resource: !GetAtt DynamoDBTableStudentportfoliocontactratelimit.Arn
 
-        # Public projects and blog read permissions
-
         - PolicyName: StudentPortfolioDynamoDBReadOnly
-
           PolicyDocument:
             Version: "2012-10-17"
-
             Statement:
               - Sid: ReadPortfolioProjects
-
                 Effect: Allow
-
                 Action:
                   - dynamodb:GetItem
                   - dynamodb:Query
                   - dynamodb:Scan
-
                 Resource: !GetAtt DynamoDBTableStudentportfolioprojects.Arn
 
               - Sid: ReadPortfolioBlogPosts
-
                 Effect: Allow
-
                 Action:
                   - dynamodb:Scan
-
                 Resource: !GetAtt DynamoDBTableStudentportfolioblogposts.Arn
 
-        # Amazon SES contact email permissions
-
         - PolicyName: StudentPortfolioSESSendEmailPolicy
-
           PolicyDocument:
             Version: "2012-10-17"
-
             Statement:
               - Sid: AllowPortfolioSESEmailSending
-
                 Effect: Allow
-
                 Action:
                   - ses:SendEmail
-
                 Resource: !Sub "arn:${AWS::Partition}:ses:${AWS::Region}:${AWS::AccountId}:identity/${PortfolioEmailIdentity}"
 
   # ==========================================================
-  # 13. AWS IAM - LAMBDA LOGGING MANAGED POLICY
+  # 13. IAM - LAMBDA LOGGING MANAGED POLICY
   # ==========================================================
 
   IAMManagedPolicyLambdaLogging:
     Type: AWS::IAM::ManagedPolicy
     DeletionPolicy: Retain
     UpdateReplacePolicy: Retain
-
     Properties:
       ManagedPolicyName: StudentPortfolioLambdaLogging
-
       Path: /service-role/
-
       Description: >
         Allows the portfolio backend to create CloudWatch
         log groups and write application logs.
-
       Roles:
         - !Ref IAMRoleStudentportfolioapi
 
       PolicyDocument:
         Version: "2012-10-17"
-
         Statement:
           - Sid: CreateLogGroups
-
             Effect: Allow
-
             Action:
               - logs:CreateLogGroup
-
             Resource: !Sub "arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:*"
 
           - Sid: WritePortfolioLogs
-
             Effect: Allow
-
             Action:
               - logs:CreateLogStream
               - logs:PutLogEvents
-
             Resource:
               - !Sub "arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/web/student-portfolio-api:*"
 
   # ==========================================================
-  # 14. AWS IAM - ADMIN DYNAMODB WRITE POLICY
+  # 14. IAM - ADMIN DYNAMODB WRITE POLICY
   # ==========================================================
 
   IAMManagedPolicyPolicyStudentPortfolioDynamoDBAdminWrite:
     Type: AWS::IAM::ManagedPolicy
     DeletionPolicy: Retain
     UpdateReplacePolicy: Retain
-
     Properties:
       ManagedPolicyName: StudentPortfolioDynamoDBAdminWrite
-
       Path: /
-
       Description: >
         Allows the portfolio Lambda backend to create,
         update and delete projects and blog posts.
         Administrator authorization is enforced by the
         application using Cognito access tokens.
-
       Roles:
         - !Ref IAMRoleStudentportfolioapi
 
       PolicyDocument:
         Version: "2012-10-17"
-
         Statement:
           - Sid: AllowPortfolioAdminWrites
-
             Effect: Allow
-
             Action:
               - dynamodb:PutItem
               - dynamodb:UpdateItem
               - dynamodb:DeleteItem
-
             Resource:
               - !GetAtt DynamoDBTableStudentportfolioprojects.Arn
               - !GetAtt DynamoDBTableStudentportfolioblogposts.Arn
 
   # ==========================================================
-  # 15. AWS LAMBDA - WEB FUNCTION
-  # Additional reference resource, not currently imported.
+  # 15. LAMBDA - WEB FUNCTION
+  # Reference resource, not currently imported.
   # ==========================================================
 
   LambdaWebFunction:
     Type: AWS::Lambda::WebFunction
     DeletionPolicy: Retain
     UpdateReplacePolicy: Retain
-
     Properties:
       FunctionName: student-portfolio-api
 
   # ==========================================================
-  # 16. AWS LAMBDA - WEB FUNCTION REVISION
-  # Additional reference resource, not currently imported.
+  # 16. LAMBDA - WEB FUNCTION REVISION
+  # Reference resource, not currently imported.
+  #
+  # The latest backend artifact includes the custom
+  # domain in its application-level CORS allowlist.
+  # The actual artifact version must be supplied.
   # ==========================================================
 
   LambdaWebFunctionRevision:
@@ -797,11 +721,9 @@ Resources:
 
     Properties:
       FunctionName: !GetAtt LambdaWebFunction.FunctionArn
-
-      Description: Student Portfolio backend reference revision.
+      Description: Student Portfolio backend with custom domain CORS support.
 
       BuildConfig:
-
         CodeConfig:
           S3Object:
             Bucket: !Ref LambdaArtifactBucket
@@ -813,40 +735,33 @@ Resources:
 
       ServiceConfig:
         ExecutionRoleArn: !GetAtt IAMRoleStudentportfolioapi.Arn
-
         TimeoutSeconds: 30
-
         MaxConcurrencyPerEnvironment: 64
 
         TelemetryConfig:
           LoggingConfig:
             LogGroup: !Ref LogsLogGroupawslambdawebstudentportfolioapi
-
             ApplicationLogLevel: INFO
-
             SystemLogLevel: INFO
 
   # ==========================================================
-  # 17. AWS LAMBDA - WEB FUNCTION ENDPOINT
-  # Additional reference resource, not currently imported.
+  # 17. LAMBDA - WEB FUNCTION ENDPOINT
+  # Reference resource, not currently imported.
   #
-  # Automatic deployment to LatestRevision is not exposed
-  # by the previously verified CloudFormation endpoint schema.
-  # Explicit revision routing is represented instead.
+  # The live endpoint uses LatestRevision deployment.
+  # Explicit revision routing is represented here because
+  # automatic deployment was not exposed by the previously
+  # verified CloudFormation endpoint schema.
   # ==========================================================
 
   LambdaWebFunctionEndpoint:
     Type: AWS::Lambda::WebFunctionEndpoint
     DeletionPolicy: Retain
     UpdateReplacePolicy: Retain
-
     Properties:
       FunctionName: !GetAtt LambdaWebFunction.FunctionArn
-
       EndpointName: student-portfolio-api-endpoint
-
       EndpointType: HomeRegion
-
       AuthType: ApplicationManaged
 
       RevisionWeights:
@@ -854,48 +769,37 @@ Resources:
           Weight: 100
 
   # ==========================================================
-  # 18. AMAZON SNS - MONITORING NOTIFICATION TOPIC
-  # Additional reference resource, not currently imported.
+  # 18. SNS - MONITORING NOTIFICATION TOPIC
+  # Reference resource, not currently imported.
   # ==========================================================
 
   SNSStudentPortfolioAlerts:
     Type: AWS::SNS::Topic
     DeletionPolicy: Retain
     UpdateReplacePolicy: Retain
-
     Properties:
       TopicName: StudentPortfolioAlerts
-
       DisplayName: StudentPortfolioAlerts
-
       FifoTopic: false
 
   # ==========================================================
-  # 19. AMAZON SNS - EMAIL SUBSCRIPTION
-  # Additional reference resource, not currently imported.
-  #
-  # A new deployment would require email confirmation.
-  # Existing subscription confirmation is not recreated
-  # automatically by this reference template.
+  # 19. SNS - EMAIL SUBSCRIPTION
+  # Reference resource, not currently imported.
+  # New deployments require email confirmation.
   # ==========================================================
 
   SNSStudentPortfolioEmailSubscription:
     Type: AWS::SNS::Subscription
     DeletionPolicy: Retain
     UpdateReplacePolicy: Retain
-
     Properties:
       TopicArn: !Ref SNSStudentPortfolioAlerts
-
       Protocol: email
-
       Endpoint: !Ref PortfolioAlertEmail
 
   # ==========================================================
-  # 20. AMAZON CLOUDWATCH - API ERROR ALARM
-  # Additional reference resource, not currently imported.
-  #
-  # Monitors HTTP 5XX errors from the Lambda Web Function.
+  # 20. CLOUDWATCH - API ERROR ALARM
+  # Reference resource, not currently imported.
   # Notification integration has been manually tested.
   # Actual HTTP 5XX detection has not been independently tested.
   # ==========================================================
@@ -904,13 +808,11 @@ Resources:
     Type: AWS::CloudWatch::Alarm
     DeletionPolicy: Retain
     UpdateReplacePolicy: Retain
-
     DependsOn:
       - LambdaWebFunctionEndpoint
 
     Properties:
       AlarmName: StudentPortfolio-API-5XX-Errors
-
       AlarmDescription: >
         Monitors HTTP 5XX server errors for the
         student-portfolio-api Lambda Web Function.
@@ -920,33 +822,24 @@ Resources:
         as not breaching the threshold.
 
       ActionsEnabled: true
-
       AlarmActions:
         - !Ref SNSStudentPortfolioAlerts
 
       Namespace: AWS/Lambda/Web
-
       MetricName: HTTPResponseStatusClass5XX
 
       Dimensions:
         - Name: FunctionName
           Value: student-portfolio-api
-
         - Name: EndpointName
           Value: student-portfolio-api-endpoint
 
       Statistic: Sum
-
       Period: 300
-
       EvaluationPeriods: 1
-
       DatapointsToAlarm: 1
-
       Threshold: 1
-
       ComparisonOperator: GreaterThanOrEqualToThreshold
-
       TreatMissingData: notBreaching
 
       Tags:
@@ -954,13 +847,9 @@ Resources:
           Value: StudentPortfolio
 
   # ==========================================================
-  # 21. AMAZON S3 - CLOUDTRAIL AUDIT LOG BUCKET
-  # Additional reference resource, not currently imported.
-  #
-  # CloudFormation-generated bucket name is used instead
-  # of exposing the existing account-specific bucket name.
-  #
-  # This is not the Lambda deployment artifact bucket.
+  # 21. S3 - CLOUDTRAIL AUDIT LOG BUCKET
+  # Reference resource, not currently imported.
+  # Generated bucket name protects account-specific naming.
   # ==========================================================
 
   S3StudentPortfolioAuditBucket:
@@ -969,12 +858,10 @@ Resources:
     UpdateReplacePolicy: Retain
 
     Properties:
-
       BucketEncryption:
         ServerSideEncryptionConfiguration:
           - ServerSideEncryptionByDefault:
               SSEAlgorithm: AES256
-
             BucketKeyEnabled: false
 
       PublicAccessBlockConfiguration:
@@ -987,33 +874,21 @@ Resources:
         Rules:
           - ObjectOwnership: BucketOwnerEnforced
 
-      # Versioning is intentionally omitted because
-      # versioning is not enabled on the existing audit bucket.
-
       LifecycleConfiguration:
         Rules:
           - Id: StudentPortfolio-AuditLog-Retention
-
             Status: Enabled
-
             Prefix: AWSLogs/
-
             ExpirationInDays: 90
 
+      # Versioning is not enabled on the existing audit bucket.
       # No static website hosting is configured.
       # No storage class transitions are configured.
       # No customer-managed KMS key is configured.
 
   # ==========================================================
-  # 22. AMAZON S3 - CLOUDTRAIL AUDIT BUCKET POLICY
-  # Additional reference resource, not currently imported.
-  #
-  # Restricts CloudTrail access to the dedicated trail
-  # and the correct AWS account log prefix.
-  #
-  # The trail ARN is constructed using pseudo parameters
-  # to avoid a circular dependency between the trail
-  # and the S3 bucket policy.
+  # 22. S3 - CLOUDTRAIL AUDIT BUCKET POLICY
+  # Reference resource, not currently imported.
   # ==========================================================
 
   S3StudentPortfolioAuditBucketPolicy:
@@ -1030,53 +905,31 @@ Resources:
         Statement:
 
           - Sid: AWSCloudTrailAclCheck
-
             Effect: Allow
-
             Principal:
               Service: cloudtrail.amazonaws.com
-
             Action:
               - s3:GetBucketAcl
-
             Resource: !GetAtt S3StudentPortfolioAuditBucket.Arn
-
             Condition:
               StringEquals:
                 "AWS:SourceArn": !Sub "arn:${AWS::Partition}:cloudtrail:${AWS::Region}:${AWS::AccountId}:trail/student-portfolio-audit-trail"
 
           - Sid: AWSCloudTrailWrite
-
             Effect: Allow
-
             Principal:
               Service: cloudtrail.amazonaws.com
-
             Action:
               - s3:PutObject
-
             Resource: !Sub "${S3StudentPortfolioAuditBucket.Arn}/AWSLogs/${AWS::AccountId}/*"
-
             Condition:
               StringEquals:
                 "s3:x-amz-acl": bucket-owner-full-control
-
                 "AWS:SourceArn": !Sub "arn:${AWS::Partition}:cloudtrail:${AWS::Region}:${AWS::AccountId}:trail/student-portfolio-audit-trail"
 
   # ==========================================================
-  # 23. AWS CLOUDTRAIL - INFRASTRUCTURE AUDIT TRAIL
-  # Additional reference resource, not currently imported.
-  #
-  # Records account-wide management events.
-  # Data events, Insights events and network activity
-  # events are not configured.
-  #
-  # CloudWatch Logs integration and SNS delivery
-  # notifications are intentionally omitted.
-  #
-  # Recursive logging was enabled in the existing console
-  # configuration. Its CloudFormation property support
-  # requires separate schema verification.
+  # 23. CLOUDTRAIL - INFRASTRUCTURE AUDIT TRAIL
+  # Reference resource, not currently imported.
   # ==========================================================
 
   CloudTrailStudentPortfolioAuditTrail:
@@ -1089,22 +942,15 @@ Resources:
 
     Properties:
       TrailName: student-portfolio-audit-trail
-
       S3BucketName: !Ref S3StudentPortfolioAuditBucket
-
       IsLogging: true
-
       IsMultiRegionTrail: true
-
       IncludeGlobalServiceEvents: true
-
       EnableLogFileValidation: true
-
       IsOrganizationTrail: false
 
       EventSelectors:
         - ReadWriteType: All
-
           IncludeManagementEvents: true
 
       Tags:
@@ -1112,14 +958,411 @@ Resources:
           Value: StudentPortfolio
 
       # SSE-KMS is intentionally not configured.
-      # The S3 audit bucket uses SSE-S3 encryption.
-      #
-      # KMS management events are not excluded.
-      # RDS Data API management events are not excluded.
-      #
       # No data event selectors are configured.
       # No Insights event selectors are configured.
       # No network activity event selectors are configured.
+      # No CloudWatch Logs integration is configured.
+      # No SNS delivery notifications are configured.
+      # Recursive logging was enabled in the live console.
+      # Its CloudFormation property requires verification.
+
+  # ==========================================================
+  # 24. CLOUDWATCH - HIGH MEMORY ALARM
+  # Reference resource, not currently imported.
+  #
+  # SNS notification delivery was manually tested.
+  # Actual high memory conditions were not induced.
+  # ==========================================================
+
+  CloudWatchStudentPortfolioHighMemoryAlarm:
+    Type: AWS::CloudWatch::Alarm
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+
+    DependsOn:
+      - LambdaWebFunction
+
+    Properties:
+      AlarmName: student-portfolio-lambda-web-high-memory
+
+      AlarmDescription: >
+        Monitors maximum environment memory usage for the
+        student-portfolio-api Lambda Web Function.
+        Sends an SNS notification when memory usage exceeds
+        1600 MB for two consecutive five-minute periods.
+
+      ActionsEnabled: true
+
+      AlarmActions:
+        - !Ref SNSStudentPortfolioAlerts
+
+      Namespace: AWS/Lambda/Web
+      MetricName: EnvironmentMaxMemoryUsage
+
+      Dimensions:
+        - Name: FunctionName
+          Value: student-portfolio-api
+
+      Statistic: Maximum
+      Period: 300
+      EvaluationPeriods: 2
+      DatapointsToAlarm: 2
+      Threshold: 1600
+      ComparisonOperator: GreaterThanThreshold
+      TreatMissingData: notBreaching
+
+  # ==========================================================
+  # 25. CLOUDWATCH - MONITORING DASHBOARD
+  # Reference resource, not currently imported.
+  # Preserves the existing six-widget layout.
+  # ==========================================================
+
+  CloudWatchStudentPortfolioDashboard:
+    Type: AWS::CloudWatch::Dashboard
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+
+    Properties:
+      DashboardName: student-portfolio-dashboard
+
+      DashboardBody: !Sub |
+        {
+          "widgets": [
+            {
+              "type": "metric",
+              "x": 0,
+              "y": 0,
+              "width": 6,
+              "height": 6,
+              "properties": {
+                "metrics": [
+                  [
+                    "AWS/Lambda/Web",
+                    "EnvironmentCPUTime",
+                    "FunctionName",
+                    "student-portfolio-api"
+                  ]
+                ],
+                "view": "timeSeries",
+                "stacked": false,
+                "region": "${AWS::Region}",
+                "title": "Lambda Web - CPU Time",
+                "stat": "Sum",
+                "period": 300
+              }
+            },
+            {
+              "type": "metric",
+              "x": 6,
+              "y": 0,
+              "width": 6,
+              "height": 6,
+              "properties": {
+                "metrics": [
+                  [
+                    "AWS/Lambda/Web",
+                    "EnvironmentMaxMemoryUsage",
+                    "FunctionName",
+                    "student-portfolio-api"
+                  ]
+                ],
+                "view": "timeSeries",
+                "stacked": false,
+                "region": "${AWS::Region}",
+                "title": "Lambda Web - Memory Usage",
+                "stat": "Maximum",
+                "period": 300
+              }
+            },
+            {
+              "type": "metric",
+              "x": 12,
+              "y": 0,
+              "width": 6,
+              "height": 6,
+              "properties": {
+                "metrics": [
+                  [
+                    "AWS/Lambda/Web",
+                    "EnvironmentConcurrentRequests",
+                    "FunctionName",
+                    "student-portfolio-api"
+                  ]
+                ],
+                "view": "timeSeries",
+                "stacked": false,
+                "region": "${AWS::Region}",
+                "title": "Lambda Web - Concurrent Requests",
+                "stat": "Maximum",
+                "period": 300
+              }
+            },
+            {
+              "type": "metric",
+              "x": 18,
+              "y": 0,
+              "width": 6,
+              "height": 6,
+              "properties": {
+                "metrics": [
+                  [
+                    "AWS/DynamoDB",
+                    "ConsumedWriteCapacityUnits",
+                    "TableName",
+                    "student-portfolio-blog-posts"
+                  ],
+                  [
+                    ".",
+                    "ConsumedReadCapacityUnits",
+                    ".",
+                    "."
+                  ],
+                  [
+                    "...",
+                    "student-portfolio-contact-ratelimit"
+                  ],
+                  [
+                    ".",
+                    "ConsumedWriteCapacityUnits",
+                    ".",
+                    "."
+                  ],
+                  [
+                    "...",
+                    "student-portfolio-projects"
+                  ],
+                  [
+                    ".",
+                    "ConsumedReadCapacityUnits",
+                    ".",
+                    "."
+                  ]
+                ],
+                "view": "timeSeries",
+                "stacked": false,
+                "region": "${AWS::Region}",
+                "title": "DynamoDB - Read and Write Capacity",
+                "stat": "Sum",
+                "period": 300
+              }
+            },
+            {
+              "type": "metric",
+              "x": 0,
+              "y": 6,
+              "width": 6,
+              "height": 6,
+              "properties": {
+                "title": "Lambda Web - High Memory Alarm",
+                "annotations": {
+                  "alarms": [
+                    "${CloudWatchStudentPortfolioHighMemoryAlarm.Arn}"
+                  ]
+                },
+                "view": "timeSeries",
+                "stacked": false
+              }
+            },
+            {
+              "type": "metric",
+              "x": 6,
+              "y": 6,
+              "width": 6,
+              "height": 6,
+              "properties": {
+                "title": "Lambda Web - API 5XX Errors",
+                "annotations": {
+                  "alarms": [
+                    "${CloudWatchStudentPortfolioAPI5XXAlarm.Arn}"
+                  ]
+                },
+                "view": "timeSeries",
+                "stacked": false
+              }
+            }
+          ]
+        }
+
+  # ==========================================================
+  # 26. CODEBUILD - PORTFOLIO BUILD PROJECT
+  # Reference resource, not currently imported.
+  #
+  # Preserves the verified existing GITHUB source
+  # and NO_ARTIFACTS project configuration.
+  # The existing service role is supplied as a parameter.
+  # ==========================================================
+
+  CodeBuildStudentPortfolioProject:
+    Type: AWS::CodeBuild::Project
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+
+    Properties:
+      Name: student-portfolio-build
+
+      Description: >
+        Validates the AWS Serverless Student Portfolio
+        frontend using Node.js 24, checks the CloudFormation
+        reference template, and prepares build artifacts
+        for CodePipeline.
+
+      ServiceRole: !Ref CodeBuildServiceRoleArn
+
+      Source:
+        Type: GITHUB
+        Location: !Sub "https://github.com/${GitHubRepositoryId}"
+        GitCloneDepth: 1
+        GitSubmodulesConfig:
+          FetchSubmodules: false
+        BuildSpec: buildspec.yml
+        ReportBuildStatus: false
+        InsecureSsl: false
+
+      SourceVersion: !Ref GitHubBranch
+
+      Artifacts:
+        Type: NO_ARTIFACTS
+
+      Cache:
+        Type: NO_CACHE
+
+      Environment:
+        Type: LINUX_CONTAINER
+        Image: aws/codebuild/amazonlinux-x86_64-standard:6.0
+        ComputeType: BUILD_GENERAL1_SMALL
+        PrivilegedMode: false
+        ImagePullCredentialsType: CODEBUILD
+
+        EnvironmentVariables:
+          - Name: CODEBUILD_CONFIG_AUTO_DISCOVER
+            Value: "false"
+            Type: PLAINTEXT
+
+      TimeoutInMinutes: 10
+      QueuedTimeoutInMinutes: 10
+      ConcurrentBuildLimit: 1
+
+      EncryptionKey: !Sub "arn:${AWS::Partition}:kms:${AWS::Region}:${AWS::AccountId}:alias/aws/s3"
+
+      BadgeEnabled: false
+
+      LogsConfig:
+        CloudWatchLogs:
+          Status: ENABLED
+          GroupName: /aws/codebuild/student-portfolio-build
+
+        S3Logs:
+          Status: DISABLED
+          EncryptionDisabled: false
+
+      Tags:
+        - Key: Project
+          Value: StudentPortfolio
+
+    Metadata:
+      ExistingProjectVisibility: PRIVATE
+      ExistingHostKernel: LINUX_KERNEL_6
+      ExistingComputeProvider: EC2
+      ExistingOperatingSystem: Amazon Linux 2023
+      BuildRuntime: Node.js 24
+      BuildRuntimeConfiguredIn: buildspec.yml
+      ExistingComputeVCPUs: 2
+      ExistingComputeMemoryGiB: 4
+
+  # ==========================================================
+  # 27. CODEPIPELINE - PORTFOLIO CI PIPELINE
+  # Reference resource, not currently imported.
+  #
+  # Existing IAM role, S3 artifact bucket and authorized
+  # GitHub connection are external dependencies.
+  #
+  # This pipeline performs source retrieval and builds.
+  # It does not deploy the frontend or backend.
+  # ==========================================================
+
+  CodePipelineStudentPortfolio:
+    Type: AWS::CodePipeline::Pipeline
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+
+    Properties:
+      Name: student-portfolio-pipeline
+      RoleArn: !Ref PipelineServiceRoleArn
+
+      PipelineType: V2
+      ExecutionMode: SUPERSEDED
+      RestartExecutionOnUpdate: false
+
+      ArtifactStore:
+        Type: S3
+        Location: !Ref PipelineArtifactBucket
+
+      Stages:
+
+        - Name: Source
+
+          Actions:
+
+            - Name: Source
+
+              ActionTypeId:
+                Category: Source
+                Owner: AWS
+                Provider: CodeStarSourceConnection
+                Version: "1"
+
+              RunOrder: 1
+
+              Configuration:
+                BranchName: !Ref GitHubBranch
+                ConnectionArn: !Ref GitHubConnectionArn
+                DetectChanges: "false"
+                FullRepositoryId: !Ref GitHubRepositoryId
+                OutputArtifactFormat: CODE_ZIP
+
+              OutputArtifacts:
+                - Name: SourceArtifact
+
+              Region: !Ref AWS::Region
+              Namespace: SourceVariables
+
+        - Name: Build
+
+          Actions:
+
+            - Name: Build
+
+              ActionTypeId:
+                Category: Build
+                Owner: AWS
+                Provider: CodeBuild
+                Version: "1"
+
+              RunOrder: 1
+
+              Configuration:
+                ProjectName: !Ref CodeBuildStudentPortfolioProject
+
+              InputArtifacts:
+                - Name: SourceArtifact
+
+              OutputArtifacts:
+                - Name: BuildArtifact
+
+              Region: !Ref AWS::Region
+              Namespace: BuildVariables
+
+      Triggers:
+
+        - ProviderType: CodeStarSourceConnection
+
+          GitConfiguration:
+            SourceActionName: Source
+
+            Push:
+              - Branches:
+                  Includes:
+                    - !Ref GitHubBranch
 
 # ============================================================
 # OUTPUTS
@@ -1134,6 +1377,10 @@ Outputs:
   PortfolioAdminDashboard:
     Description: Portfolio administrator dashboard.
     Value: !Sub "${PortfolioWebsiteURL}admin.html"
+
+  PortfolioLegacyWebsite:
+    Description: Previous GitHub Pages website URL.
+    Value: !Ref PortfolioLegacyWebsiteURL
 
   ProjectsTableName:
     Description: DynamoDB projects table.
@@ -1207,6 +1454,18 @@ Outputs:
     Description: Portfolio API HTTP 5XX error alarm ARN.
     Value: !GetAtt CloudWatchStudentPortfolioAPI5XXAlarm.Arn
 
+  HighMemoryAlarmName:
+    Description: Lambda Web Function high memory alarm name.
+    Value: !Ref CloudWatchStudentPortfolioHighMemoryAlarm
+
+  HighMemoryAlarmArn:
+    Description: Lambda Web Function high memory alarm ARN.
+    Value: !GetAtt CloudWatchStudentPortfolioHighMemoryAlarm.Arn
+
+  MonitoringDashboardName:
+    Description: Portfolio CloudWatch monitoring dashboard.
+    Value: !Ref CloudWatchStudentPortfolioDashboard
+
   CloudTrailAuditBucketName:
     Description: CloudTrail audit log storage bucket.
     Value: !Ref S3StudentPortfolioAuditBucket
@@ -1223,9 +1482,29 @@ Outputs:
     Description: Audit log lifecycle expiration period in days.
     Value: "90"
 
+  CodeBuildProjectName:
+    Description: Portfolio continuous integration build project.
+    Value: !Ref CodeBuildStudentPortfolioProject
+
+  CodeBuildProjectArn:
+    Description: Portfolio CodeBuild project ARN.
+    Value: !GetAtt CodeBuildStudentPortfolioProject.Arn
+
+  CodePipelineName:
+    Description: Portfolio continuous integration pipeline.
+    Value: !Ref CodePipelineStudentPortfolio
+
+  PipelineArtifactBucketName:
+    Description: Existing S3 pipeline artifact bucket.
+    Value: !Ref PipelineArtifactBucket
+
   DeploymentRegion:
     Description: AWS deployment region.
     Value: !Ref AWS::Region
+
+  ImplementedAWSServiceCount:
+    Description: Primary AWS services implemented in the project.
+    Value: "12"
 
 # ============================================================
 # INFRASTRUCTURE REFERENCE SUMMARY
@@ -1234,34 +1513,43 @@ Outputs:
 # Project:
 #   AWS Serverless Student Portfolio
 #
-# AWS services implemented:
-#   10
+# Primary website:
+#   https://pranavk.co.in/
+#
+# Primary AWS services implemented:
+#   12
+#
+# AWS CodeConnections is documented separately as an
+# existing supporting integration.
 #
 # Existing live CloudFormation imported resources:
 #   12
 #
 # Additional reference resource definitions:
-#   11
+#   15
 #
 # Total resource definitions:
-#   23
+#   27
 #
 # Resource distribution:
 #   DynamoDB Tables:                  3
 #   Cognito Resources:                5
 #   IAM Resources:                    3
-#   CloudWatch Resources:             3
+#   CloudWatch Resources:             5
 #   SES Email Identity:               1
 #   Lambda Web Function Resources:    3
 #   SNS Resources:                    2
 #   S3 Resources:                     2
 #   CloudTrail Resources:             1
+#   CodeBuild Resources:              1
+#   CodePipeline Resources:           1
 #   -----------------------------------
-#   Total:                           23
+#   Total:                           27
 #
 # Existing external dependencies:
 #   GitHub repository
 #   GitHub Pages frontend
+#   Custom domain and DNS configuration
 #   Lambda S3 deployment artifact bucket
 #   Lambda S3 deployment artifact object
 #   Lambda S3 deployment artifact version
@@ -1269,10 +1557,18 @@ Outputs:
 #   Existing administrator group memberships
 #   Existing application data
 #   Verified SES email identity
+#   CodePipeline S3 artifact bucket
+#   CodePipeline IAM service role
+#   CodeBuild IAM service role
+#   Authorized AWS CodeConnections GitHub connection
+#   CodeBuild-generated CloudWatch log group
 #
 # Monitoring:
-#   CloudWatch Logs retention: 30 days
+#   Lambda CloudWatch Logs retention: 30 days
 #   CloudWatch HTTP 5XX alarm: Configured
+#   CloudWatch high memory alarm: Configured
+#   High memory threshold: Greater than 1600 MB
+#   CloudWatch dashboard: Six widgets
 #   SNS email notification: Configured
 #
 # Auditing:
@@ -1281,6 +1577,14 @@ Outputs:
 #   Private S3 audit log storage
 #   SSE-S3 encryption
 #   90-day lifecycle expiration
+#
+# Continuous integration:
+#   CodePipeline V2
+#   GitHub source integration
+#   Push trigger on main
+#   CodeBuild validation using Node.js 24
+#   Build configuration in buildspec.yml
+#   No separate AWS deployment stage
 #
 # IMPORTANT:
 #
@@ -1291,7 +1595,7 @@ Outputs:
 #
 # The existing live stack manages only 12 resources.
 #
-# The additional 11 resource definitions have not
+# The additional 15 resource definitions have not
 # been imported into the live stack.
 #
 # Existing production resource names and configurations
@@ -1300,6 +1604,19 @@ Outputs:
 # The audit bucket uses a generated name in this reference.
 #
 # The existing Lambda deployment bucket is external.
+#
+# The existing CodePipeline artifact bucket is external.
+#
+# The existing CI IAM roles and GitHub connection
+# must be supplied through parameters.
+#
+# The live Lambda Web Function uses automatic deployment
+# to LatestRevision. This reference represents explicit
+# revision routing instead.
+#
+# Backend CORS is implemented in application code.
+# Updating the website URL parameter alone does not
+# modify the backend CORS allowlist.
 #
 # Existing Cognito administrator accounts and application
 # data are not recreated by this template.
@@ -1311,6 +1628,13 @@ Outputs:
 #
 # The audit lifecycle rule permanently expires eligible
 # logs and digest files after 90 days.
+#
+# CodeBuild source and artifact settings reproduce the
+# existing project. Fresh deployment compatibility
+# with CodePipeline requires separate verification.
+#
+# CodeBuild host kernel and project visibility are
+# documented as metadata pending schema verification.
 #
 # Successful template validation does not establish
 # complete deployment compatibility.
