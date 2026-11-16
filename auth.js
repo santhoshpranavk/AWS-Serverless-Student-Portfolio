@@ -9,8 +9,8 @@
  * AWS Region: ap-south-1 (Mumbai)
  *
  * Authentication tokens are stored in memory only.
- * AWS Lambda must independently verify access tokens
- * and administrator permissions.
+ * AWS Lambda Web Function must independently verify
+ * access tokens and administrator permissions.
  */
 
 // ============================================================
@@ -29,19 +29,19 @@ const COGNITO_CONFIG = Object.freeze({
 
   // Public portfolio login callback
   redirectUri:
-    "https://santhoshpranavk.github.io/AWS-Serverless-Student-Portfolio/",
+    "https://pranavk.co.in/",
 
   // Admin dashboard login callback
   adminRedirectUri:
-    "https://santhoshpranavk.github.io/AWS-Serverless-Student-Portfolio/admin.html",
+    "https://pranavk.co.in/admin.html",
 
   // Public portfolio logout destination
   logoutUri:
-    "https://santhoshpranavk.github.io/AWS-Serverless-Student-Portfolio/",
+    "https://pranavk.co.in/",
 
-  // NEW: Admin dashboard logout destination
+  // Admin dashboard logout destination
   adminLogoutUri:
-    "https://santhoshpranavk.github.io/AWS-Serverless-Student-Portfolio/admin.html",
+    "https://pranavk.co.in/admin.html",
 
   scopes: ["openid", "email"]
 });
@@ -655,7 +655,6 @@ function getCognitoLogoutDestination() {
   const currentPage =
     window.location.origin + window.location.pathname;
 
-  // NEW:
   // When logging out from admin.html, return to
   // the admin login screen instead of the portfolio.
   if (currentPage === COGNITO_CONFIG.adminRedirectUri) {
